@@ -13,6 +13,12 @@ config.log
 config.status
 .deps
 src/Makefile
-src/testprog
-src/testprog.o
 stamp-h1
+config.guess
+config.sub
+libtool
+ltmain.sh
+.libs
+src/librddma_api.la
+src/rddma_api.lo
+src/rddma_api.o
