@@ -1,0 +1,87 @@
+So I go to some directory . and in there I create a directory src
+and a Makefile.am containing
+
+SUBDIRS = src
+
+then in my src directory I create my test library code rddma_api.c
+
+#include "rddma_api.h"
+#include <stdio.h>
+
+int rddma_smb_create(char *desc)
+{
+	char buffer[128];
+	int ret;
+
+	FILE *fp = fopen("/dev/rddma", "rw");
+
+	if (NULL == fp)
+		return -1;
+
+	fprintf(fp,"smb_create://%s",desc);
+
+	fscanf(fp,"[%d]%s",&ret,buffer);
+	
+	fclose(fp);
+
+	printf("smb_create://%s returns [%d]%s\n",desc,ret,buffer);
+
+	return ret;
+}
+
+and its header file rddma_api.h
+
+#ifndef RDDMA_API_H
+#define RDDMA_API_H
+#endif	/* RDDMA_API_H */
+
+and a Makefile.am containing
+
+lib_LTLIBRARIES = librddma_api.la
+
+librddma_api_la_SOURCES = rddma_api.c rddma_api.h
+
+
+so now I have the following directory structure
+
+.:
+total 4
+-rw-rw-r-- 1 phil phil   14 Jul  1 17:54 Makefile.am
+drwxrwxr-x 2 phil phil 1024 Jul 13 15:36 src
+
+./src:
+total 3
+-rw-rw-r-- 1 phil phil  86 Jul  1 18:39 Makefile.am
+-rw-rw-r-- 1 phil phil 344 Jul  1 19:29 rddma_api.c
+-rw-rw-r-- 1 phil phil  65 Jul  1 17:57 rddma_api.h
+
+OK, so now issue the following command in the top level directory .
+
+touch README ChangeLog AUTHORS NEWS
+
+Then its autoscan which will generate you a configure.scan file.
+Edit this as follows and save it as configure.ac 
+
+--- configure.scan	2007-07-13 15:40:29.000000000 -0700
++++ configure.ac	2007-07-13 15:42:41.000000000 -0700
+@@ -2,10 +2,11 @@
+ # Process this file with autoconf to produce a configure script.
+ 
+ AC_PREREQ(2.59)
+-AC_INIT(FULL-PACKAGE-NAME, VERSION, BUG-REPORT-ADDRESS)
++AC_INIT([rddma_api], [0.1], [Phil Terry <pterry@micromemory.com>])
++AM_INIT_AUTOMAKE
+ AC_CONFIG_SRCDIR([src/rddma_api.c])
+ AC_CONFIG_HEADER([config.h])
+-
++AC_PROG_LIBTOOL
+ # Checks for programs.
+ AC_PROG_CC
+ 
+Now run autoreconf -i
+
+Now run ./configure
+
+Now run ./make distcheck
+
+Voila this tarball
