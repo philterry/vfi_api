@@ -9,8 +9,9 @@ missing
 src/Makefile.in
 Makefile
 config.h
-config.log
+*.log
 config.status
+configure.scan
 .deps
 src/Makefile
 stamp-h1
