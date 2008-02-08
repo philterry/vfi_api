@@ -1,10 +1,24 @@
 #include "rddma_api.h"
 
-struct rddma_dev *rddma_open()
+int rddma_get_eventfd(int count)
+{
+	int afd;
+
+	/* Initialize event fd */
+	if ((afd = eventfd(count)) == -1) {
+		perror("eventfd");
+		return -1;
+	}
+	fcntl(afd, F_SETFL, fcntl(afd, F_GETFL, 0) | O_NONBLOCK);
+
+	return afd;
+}
+
+struct rddma_dev *rddma_open(char *dev_name, int flags)
 {
 	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
 
-	dev->fd = open("/dev/rddma",O_RDWR);
+	dev->fd = open(dev_name ? dev_name : "/dev/rddma",flags ? flags : O_RDWR);
 
 	if ( dev->fd < 0 ) {
 		perror("failed");

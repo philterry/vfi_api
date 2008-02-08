@@ -136,9 +136,10 @@ struct rddma_dev {
 	FILE *file;
 };
 
-extern struct rddma_dev *rddma_open(void);
+extern struct rddma_dev *rddma_open(char *, int);
 extern void rddma_close(struct rddma_dev *);
 extern char *rddma_call(struct rddma_dev *, char *);
 extern long rddma_get_hex_option(char *, char *);
+extern int rddma_get_eventfd(int);
 
 #endif	/* RDDMA_API_H */
