@@ -28,7 +28,7 @@ AC_C_INLINE
 
 # Checks for library functions.
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([memset strstr strtol])
+AC_CHECK_FUNCS([memset strstr strtoul])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile])

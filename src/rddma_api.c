@@ -53,7 +53,7 @@ long rddma_get_hex_option(char *str, char *name)
 	char *val;
 	if ((opt = strstr(str,name)))
 		if ((val = strstr(opt,"(")))
-			return strtol(val,0,16);
+			return strtoul(val,0,16);
 	return 0;
 }
 
