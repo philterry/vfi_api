@@ -1,0 +1,222 @@
+Introduction
+============
+
+The interface to the RDDMA driver is inherently asynchronous.
+
+What does this mean?
+
+Whether you use write or aio any "commad" you pass to the driver is
+queued for action and the write/io_submit returns.
+
+Sometime later you can obain the result of your "command" by reading
+the same file descriptor you did the write of the command on or by
+obtaining the result with io_getevents.
+
+If you do a blocking read on the file descriptor without any other
+intervening command writes then the result returned will be the result
+of the command you wrote.
+
+If you issue many command writes and then either block or poll for the
+read then you need to use the request/reply mechanism to tie the
+result to the request as, in an inherently asynchronous driver, the
+commands can complete out of order.
+
+The request/reply value is simply an opaque handle returned by the
+driver to its caller and the caller is free to make any use,
+interpretation of it it wishes. (Especially as the RDDMA interface is
+string based so it can be a 32-bit pointer value, 64-bit value, a list
+of values, etc.)
+
+Now, before we can make a decision as to how we "handle" or "hide"
+this nature of the RDDMA driver interface we have to decide what
+"style" of application is going to be using it.
+
+Most people instinctively think there are only two alternatives,
+
+ a single threaded synchronous application, or,
+
+ a multi-threaded application. 
+
+In the latter the style of thought is also that each thread is
+synchronous and that the asynchronicity of the application is simply
+that multiple threads are running.
+
+However, there is a third alternative which is an asynchronous single
+threaded application. This style is usually called event dispatch loop
+or event driven programming and is most easily recognized by the
+presence of innumerable "call-back" functions.
+
+In fact this can be combined with threads. Each thread is an event
+driven loop and multiple threads may be used to address orthoganal
+issues such as priority or throughput of the work being performed by
+each event loop.
+
+So the reality is that there isn't going to be a single API sitting
+between the driver and "the" application. Instead there are multiple API's
+which are suited to the different styles of application and which can
+be tailored to the amount of support required by the application
+programmer.
+
+A "close to the metal" programmer may in fact dispense with the API's
+and craft specific code to directly drive the driver interface in
+their chosen style making use of the RDDMA's request/reply values if
+required to hold their call backs, events, etc.
+
+A somewhat less paranoid programmer may want to control and craft the
+details of their application style but seek some "helper" functions to
+hide the details of the RDDMA driver per se while requiring the
+necessary hooks in that API for their chosen style.
+
+At the top most level, some may simply want to chose a style and plug
+their application specific processing code into a ready-made
+"framework" supporting that style.
+
+With this background in mind we can now turn to the design of the API,
+seeking to provide as much commonality as possible in supporting the
+various styles but without burdening any single style with
+un-necessary overhead.
+
+Fundamentals of RDDMA Interface
+===============================
+
+First, there must be a file descriptor to connect the application to
+the driver: you must open an rddma device (/dev/rddma by default) to
+get a file descriptor.
+
+This file descriptor is used for the read/write commands and is given
+for each iovec in the array of events submitted via asynchronous IO.
+
+Second, given that the events on this file descriptor are
+asynchronous, there must be a "handle" for connecting responses to
+requests.
+
+Synchronous Interface
+---------------------
+
+The simplest version of this handle, effectively our "synchronous"
+interface, is to not issue subsequent writes of events until an
+intervening read of the response has succeeded. In this approach the
+handle is implicit.
+
+This mechanism can be used very simply within either a single threaded
+application or a simply multi-threaded application with an API which uses a
+file descriptor per thread and for which each RDDMA command the API
+function consists of a write of the command and a blocking read of the
+response.
+
+So for each thread the actions are:
+
+   rddma_dev = rddma_open(...);
+   ...
+   rc = rddma_<cmd>(rddma_dev,...);
+   ...
+   rddma_close(rddma_dev);
+
+The structure of each rddma_<cmd> is simply to format the args into a
+string buffer, write it to the file descriptor in the rddma_dev
+handle, read a result back from the same descriptor, parse it to
+return result arguments and indicate the overall success/failure in
+the return code.
+
+In fact one can envisage a common rddma_call function using varargs
+
+int rddma_call(struct rddma_dev *dev, char **response, char *format, ...)
+{
+	int res = 0;
+
+	n = sprintf(buf, format, ...);
+	res = write(dev->fd,buf,n);
+
+	if ( res < 0)
+	   return res;
+
+	n = read(dev->fd, buf, bufsize)
+
+	*response = buf;
+
+	return res;
+}
+
+Asynchronous Interface
+----------------------
+
+For an asysnchronous solution two routes are possible, read/write
+with explicit handles or Asynchronous IO (AIO). In both cases an explicit
+handle is required/provided.
+
+For the read/write interface the handle manufactured by the API is
+carried explicitly in the RDDMA Interface Language request/reply
+options.  
+
+For the AIO approach the interface defined therein (linux/aio_abi.h)
+provides two explicit fields in the iovec and io_event structures. A
+64-bit data field passed between the invoking iovec and the io_event
+result and the address of the iovec itself returned in the io_event.
+
+Typical use made of such fields is for the calling API/application
+framework to apply a convention whereby the desired call back action
+can be manufactured. What exactly this will be depends on the
+API/framework requirements.
+
+The data field might be the address of a semaphore structure and the
+code reading back the results might have the fixed function to release
+the semaphore. This might be of use to a multi-threaded application
+with asynchronous calls using threads to wait for call backs on a
+semaphore. 
+
+The data field might be a function address of a fixed prototype and
+the routine reading the results simply calls this function on the data
+structure field.
+
+If there is only a single field but more is required, then the address
+could be of a data structure with more fields in it, say a function
+address, a parameter, a semaphore, a buffer, whatever is required. Thus in
+practice any required callback mechanism can be manufactured from a
+single field.
+
+There are three basic pieces to this general structure.
+
+ A convention in the API coming into the invocation of the
+ asynchronous action to store enough context to resume execution after
+ the event returns asynchronously,
+
+ A mechanism to sleep/wait on once the invocation has been issued,
+
+ A mechanism to catch the responses, decode them back to the invoking
+ events, and resume/wake the original execution path using the API
+ convention.
+
+The first two are fairly easy to treat within an "API", the third is
+more problematic in that it impinges on the application style or
+framework aspects. Wrapping this in an "API" mechanism is where the
+API can become heavyweight versus "open coding" the application outer
+loop to use a lighter weight API in the other two areas. The desire on
+the part of the API writer to "wrap everything" up and yet still be
+completely generic results in the first two mechanisms being heavier
+than they need strictly be, in order to support the generality
+necessary in the third.
+
+Application Framework - Style
+=============================
+
+What typically drives the choice of outerblock structure?
+
+We can take for granted in our application space (embedded
+signal/image processing) that we wish to achieve performance
+enhancement by parallizing data movement between processors with
+processing on said processors.
+
+So this is a classic IO versus compute bound question. 
+
+If you are IO bound you want an event dispatch oriented mechanism
+invoking compute functions on data as it becomes available,
+asynchronously, out of order, etc.
+
+If you are compute bound you simply need a confirming data ready in
+your compute loop to make sure that previously dispatched data
+movement has completed before applying compute function to that data
+area.
+
+If you have real time constraints or ordering constraints you may wish
+to have a fixed sequencing in the application divorced from the order
+of IO event completion.
