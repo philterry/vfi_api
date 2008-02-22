@@ -129,7 +129,13 @@ static inline int eventfd(int count) {
 	return syscall(__NR_eventfd, count);
 }
 
+extern void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
+			     int64_t offset, int afd);
 extern void asyio_prep_pwrite(struct iocb *, int, void const *, int, int64_t, int);
+extern void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+			      int64_t offset, int afd);
+extern void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+			       int64_t offset, int afd);
 extern long waitasync(int, int);
 struct rddma_dev {
 	int fd;

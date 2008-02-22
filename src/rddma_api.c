@@ -57,6 +57,48 @@ long rddma_get_hex_option(char *str, char *name)
 	return 0;
 }
 
+void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+		       int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PREADV;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) iov;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+			int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PWRITEV;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) iov;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
+		      int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PREAD;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) buf;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
 void asyio_prep_pwrite(struct iocb *iocb, int fd, void const *buf, int nr_segs,
 		       int64_t offset, int afd)
 {
