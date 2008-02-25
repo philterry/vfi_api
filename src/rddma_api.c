@@ -261,8 +261,10 @@ int rddma_get_result_async(struct rddma_dev *dev, int timeout)
 	if (ret < 1)
 		goto out;
 
-	if (handle && (handle->c == handle)) 
+	if (handle && (handle->c == handle)) {
+		handle->result = result;
 		sem_post(&handle->sem);
+	}
 	else
 		ret = -EINVAL;
 out:
