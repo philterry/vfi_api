@@ -136,16 +136,23 @@ extern void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int 
 			      int64_t offset, int afd);
 extern void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
 			       int64_t offset, int afd);
-extern long waitasync(int, int);
+extern int waitasync(int, int);
 struct rddma_dev {
 	int fd;
 	FILE *file;
 };
 
+extern int rddma_get_eventfd(int);
 extern struct rddma_dev *rddma_open(char *, int);
 extern void rddma_close(struct rddma_dev *);
-extern char *rddma_call(struct rddma_dev *, char *);
 extern long rddma_get_hex_option(char *, char *);
-extern int rddma_get_eventfd(int);
-
+extern int rddma_poll_read(struct rddma_dev *, int);
+extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
+extern int rddma_do_cmd_blk(struct rddma_dev *, int, char **, char *, ...) __attribute__((format(printf,4,5)));
+extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...) __attribute__((format(printf,2,3)));
+extern int rddma_get_result(struct rddma_dev *, int, char **);
+extern void *rddma_alloc_async_handle(void);
+extern int rddma_get_async_handle(void *, char **);
+extern int rddma_free_async_handle(void *);
+extern int rddma_get_result_async(struct rddma_dev *, int);
 #endif	/* RDDMA_API_H */

@@ -1,0 +1,54 @@
+= Blocking Ordered(BO)
+
+This is the normal blocking IO with a normal open of /dev/rddma.
+
+In this mode the write of the command is blocking until the command
+has completed. When the write completes the read will have a pending
+result waiting. Thus no need to poll the read after the write. In this
+mode all execution is ordered.
+
+= Non-Blocking
+
+If /dev/rddma is opened with the O_NONBLOCK option then the write of
+the command returns immediately.
+
+The read response is also non-blocking and will return -EAGAIN if
+empty when read. The poll command can be used to block (with or
+without timeout) if a blocking semantic is required, followed by the
+read.
+
+There are two methods of using this non-blocking mode:
+
+- ordered execution
+- out-of-order execution
+
+== Non-Blocking Ordered Execution (NBO)
+
+In this mode a non-blocking write of a command is issued only so that
+further processing can be performed before waiting for the response
+with the read, that is, the execution of the command can be
+parallelized with other processing.
+
+But, most importantly, before any further commands are submitted for
+execution, the application must issue a successful read for the
+result. In this way there are no problems with out of order
+completions. Thus the execution sequence consists of an an endless
+stream of interleaved write/poll/read sequences.
+
+== Non-Blocking Out of Order(NBOO)
+
+In this mode multiple non-blocking writes of multiple commands may be
+performed without waiting for a response. As commands can complete out
+of order the sequence of responses on the read queue may be out of
+order with respect to the invoking write commands.
+
+In this mode some mechanism must therefore be used to correlate the
+responses to the requesting commands. Invariably with this approach
+the correlation coincides with the blocking and resumption of thread execution.
+
+= AIO Signal
+aio signal
+
+= AIO Eventfd
+aio eventfd
+

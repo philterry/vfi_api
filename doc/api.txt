@@ -33,9 +33,9 @@ this nature of the RDDMA driver interface we have to decide what
 
 Most people instinctively think there are only two alternatives,
 
- a single threaded synchronous application, or,
+- a single threaded synchronous application, or,
 
- a multi-threaded application. 
+- a multi-threaded application. 
 
 In the latter the style of thought is also that each thread is
 synchronous and that the asynchronicity of the application is simply
@@ -119,7 +119,7 @@ return result arguments and indicate the overall success/failure in
 the return code.
 
 In fact one can envisage a common rddma_call function using varargs
-
+............
 int rddma_call(struct rddma_dev *dev, char **response, char *format, ...)
 {
 	int res = 0;
@@ -136,7 +136,7 @@ int rddma_call(struct rddma_dev *dev, char **response, char *format, ...)
 
 	return res;
 }
-
+...............
 Asynchronous Interface
 ----------------------
 
@@ -176,13 +176,13 @@ single field.
 
 There are three basic pieces to this general structure.
 
- A convention in the API coming into the invocation of the
+- A convention in the API coming into the invocation of the
  asynchronous action to store enough context to resume execution after
  the event returns asynchronously,
 
- A mechanism to sleep/wait on once the invocation has been issued,
+- A mechanism to sleep/wait on once the invocation has been issued,
 
- A mechanism to catch the responses, decode them back to the invoking
+- A mechanism to catch the responses, decode them back to the invoking
  events, and resume/wake the original execution path using the API
  convention.
 
