@@ -1,5 +1,4 @@
 #include "rddma_api.h"
-
 #include <poll.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -188,11 +187,17 @@ int rddma_get_result(struct rddma_dev *dev, int timeout, char **result)
 {
 	int ret;
 
-	ret = rddma_poll_read(dev,timeout);
-	if (ret <= 0)
-		goto out;
-
 	ret = fscanf(dev->file,"%a[^\n]\n",result);
+
+	while (ret <= 0 && ferror(dev->file)){
+		clearerr(dev->file);
+
+		ret = rddma_poll_read(dev,timeout);
+		if (ret <= 0)
+			goto out;
+
+		ret = fscanf(dev->file,"%a[^\n]\n",result);
+	}
 out:
 	return ret;
 }
@@ -238,17 +243,21 @@ int rddma_free_async_handle(void *h)
 int rddma_get_result_async(struct rddma_dev *dev, int timeout)
 {
 	int ret;
-	char *reply;
-	char *result;
-	struct rddma_async_handle *handle;
+	char *reply = NULL;
+	char *result = NULL;
+	struct rddma_async_handle *handle = NULL;
 
-	ret = rddma_poll_read(dev,timeout);
-	if (ret <= 0)
-		goto out;
+	ret = fscanf(dev->file,"%a[^\n]\n",&result);
 
-	ret = fscanf(dev->file,"%a[^\n]",&result);
-	if (ret < 0)
-		goto out;
+	while (ret <= 0 && ferror(dev->file)) {
+		clearerr(dev->file);
+
+		ret = rddma_poll_read(dev,timeout);
+		if (ret <= 0)
+			goto out;
+
+		ret = fscanf(dev->file,"%a[^\n]\n",&result);
+	}
 
 	reply = strstr(result,"reply");
 	if (reply == NULL) {

@@ -137,9 +137,11 @@ extern void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int 
 extern void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
 			       int64_t offset, int afd);
 extern int waitasync(int, int);
+
 struct rddma_dev {
 	int fd;
 	FILE *file;
+	aio_context_t ctx;
 };
 
 extern int rddma_get_eventfd(int);
