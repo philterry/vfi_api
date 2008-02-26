@@ -118,7 +118,6 @@ int waitasync(int afd, int timeout)
 int rddma_poll_read(struct rddma_dev *dev, int timeout)
 {
 	struct pollfd fd = {dev->fd,POLLIN,0};
-	
 	return poll(&fd,1,timeout);
 }
 
@@ -179,7 +178,7 @@ int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
 	if (ret < 0)
 		goto out;
 
-	ret = fflush(dev->file);
+	fflush(dev->file);
 out:
 	va_end(ap);
 	return ret;
@@ -193,7 +192,7 @@ int rddma_get_result(struct rddma_dev *dev, int timeout, char **result)
 	if (ret <= 0)
 		goto out;
 
-	ret = fscanf(dev->file,"%a[^\n]",result);
+	ret = fscanf(dev->file,"%a[^\n]\n",result);
 out:
 	return ret;
 }
