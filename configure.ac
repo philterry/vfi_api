@@ -30,6 +30,14 @@ AC_C_INLINE
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset strstr strtoul])
 
+RDDMA_API_INCLUDEDIR="-I${includedir}"
+AC_SUBST(RDDMA_API_INCLUDEDIR)
+RDDMA_API_CFLAGS=""
+AC_SUBST(RDDMA_API_CFLAGS)
+RDDMA_API_LIBDIR="-L${libdir}"
+AC_SUBST(RDDMA_API_LIBDIR)
+RDDMA_API_LIBS="-l${PACKAGE}"
+AC_SUBST(RDDMA_API_LIBS)
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile doc/Makefile m4/Makefile mmcrddma_api-config])
 AC_OUTPUT

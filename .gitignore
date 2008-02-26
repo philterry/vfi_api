@@ -6,6 +6,7 @@ configure
 depcomp
 install-sh
 missing
+mmcrddma_api-config
 src/Makefile.in
 Makefile
 config.h
