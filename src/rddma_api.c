@@ -21,6 +21,7 @@ struct rddma_dev *rddma_open(char *dev_name, int flags)
 {
 	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
 
+	dev->to = -1;
 	dev->fd = open(dev_name ? dev_name : "/dev/rddma",flags ? flags : O_RDWR);
 
 	if ( dev->fd < 0 ) {
@@ -114,10 +115,10 @@ int waitasync(int afd, int timeout)
 	return poll(&fd,1,timeout);
 }
 
-int rddma_poll_read(struct rddma_dev *dev, int timeout)
+int rddma_poll_read(struct rddma_dev *dev)
 {
 	struct pollfd fd = {dev->fd,POLLIN,0};
-	return poll(&fd,1,timeout);
+	return poll(&fd,1,dev->to);
 }
 
 int rddma_do_cmd(struct rddma_dev *dev, char **result,  char *f, ...)
@@ -141,7 +142,7 @@ out:
 	return ret;
 }
 
-int rddma_do_cmd_blk(struct rddma_dev *dev, int timeout, char **result,  char *f, ...)
+int rddma_do_cmd_blk(struct rddma_dev *dev, char **result,  char *f, ...)
 {
 	va_list ap;
 	int ret;
@@ -156,7 +157,7 @@ int rddma_do_cmd_blk(struct rddma_dev *dev, int timeout, char **result,  char *f
 	if (ret < 0)
 		goto out;
 
-	ret = rddma_poll_read(dev,timeout);
+	ret = rddma_poll_read(dev);
 	if (ret <= 0)
 		goto out;
 
@@ -183,7 +184,7 @@ out:
 	return ret;
 }
 
-int rddma_get_result(struct rddma_dev *dev, int timeout, char **result)
+int rddma_get_result(struct rddma_dev *dev, char **result)
 {
 	int ret;
 
@@ -192,7 +193,7 @@ int rddma_get_result(struct rddma_dev *dev, int timeout, char **result)
 	while (ret <= 0 && ferror(dev->file)){
 		clearerr(dev->file);
 
-		ret = rddma_poll_read(dev,timeout);
+		ret = rddma_poll_read(dev);
 		if (ret <= 0)
 			goto out;
 
@@ -240,7 +241,7 @@ int rddma_free_async_handle(void *h)
 	return -EINVAL;
 }
 
-int rddma_get_result_async(struct rddma_dev *dev, int timeout)
+int rddma_get_result_async(struct rddma_dev *dev)
 {
 	int ret;
 	char *reply = NULL;
@@ -252,7 +253,7 @@ int rddma_get_result_async(struct rddma_dev *dev, int timeout)
 	while (ret <= 0 && ferror(dev->file)) {
 		clearerr(dev->file);
 
-		ret = rddma_poll_read(dev,timeout);
+		ret = rddma_poll_read(dev);
 		if (ret <= 0)
 			goto out;
 
