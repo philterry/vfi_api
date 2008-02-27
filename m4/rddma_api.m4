@@ -10,12 +10,15 @@ cd ${srcdir}
 there=`pwd`
 cd ${here}
 
-if test -d ${srcdir}/mmc_rddma_api ; then
-    rddma_api_includes="-I${there}/mmc_rddma_api/src"
-else if test -d ${srcdir}/../mmc_rddma_api ; then
-    rddma_api_includes="-I`dirname ${there}`/mmc_rddma_api/src"
+if test -d ${srcdir}/rddma_api ; then
+    rddma_api_includes="-I${there}/rddma_api/src"
+    rddma_api_libadds="{there}/rddma_api/src/librddma_api.la"
+else if test -d ${srcdir}/../rddma_api ; then
+    rddma_api_includes="-I`dirname ${there}`/rddma_api/src"
+    rddma_api_libadds="`dirname ${there}`/rddma_api/src/librddma_api.la"
 else if test -d ${srcdir}/../../mmc_rddma_api ; then
-    rddma_api_includes="-I`dirname \`dirname ${there}\``/mmc_rddma_api/src"
+    rddma_api_includes="-I`dirname \`dirname ${there}\``/rddma_api/src"
+    rddma_api_libadds="`dirname \`dirname ${there}\``/rddma_api/src/librddma_api.la"
 else
 
 AC_ARG_WITH(rddma_api-prefix,
