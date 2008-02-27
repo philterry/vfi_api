@@ -7,6 +7,24 @@ has completed. When the write completes the read will have a pending
 result waiting. Thus no need to poll the read after the write. In this
 mode all execution is ordered.
 
+You can drive your application this way but we don't provide API
+support for this mode. 
+
+Instead in our BO mode we use a non-blocking file descriptor but the
+do_cmd api function will immediately block with a poll and read the
+response after doing the write. The reason for doing this is that 
+
+a. we can use a single file descriptor for both blocking and
+non-blocking style interactions, and,
+
+b. there is an interaction between O_NONBLOCK and the fscanf function
+re line termination which is difficult to handle if we keep having to
+check the mode of the file handle.
+
+rddma_open
+rddma_do_cmd()
+rddma_close
+
 = Non-Blocking
 
 If /dev/rddma is opened with the O_NONBLOCK option then the write of
@@ -22,7 +40,7 @@ There are two methods of using this non-blocking mode:
 - ordered execution
 - out-of-order execution
 
-== Non-Blocking Ordered Execution (NBO)
+== Non-Blocking Ordered Execution (NBIO)
 
 In this mode a non-blocking write of a command is issued only so that
 further processing can be performed before waiting for the response
@@ -35,6 +53,12 @@ result. In this way there are no problems with out of order
 completions. Thus the execution sequence consists of an an endless
 stream of interleaved write/poll/read sequences.
 
+rddma_open
+rddma_invoke_cmd
+...
+rddma_get_reply
+rddma_close
+
 == Non-Blocking Out of Order(NBOO)
 
 In this mode multiple non-blocking writes of multiple commands may be
@@ -44,7 +68,22 @@ order with respect to the invoking write commands.
 
 In this mode some mechanism must therefore be used to correlate the
 responses to the requesting commands. Invariably with this approach
-the correlation coincides with the blocking and resumption of thread execution.
+the correlation coincides with the blocking and resumption of thread
+execution.
+
+rddma_open
+
+per thread
+    rddma_alloc_async_handle
+    rddma_invoke_cmd with handle
+
+    rddma_get_async_handle to get reply
+
+    rddma_free_async_handle
+
+in main thread
+   rddma_get_result_async
+rddma_close
 
 = AIO Signal
 aio signal
