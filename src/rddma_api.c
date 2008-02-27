@@ -17,12 +17,12 @@ int rddma_get_eventfd(int count)
 	return afd;
 }
 
-struct rddma_dev *rddma_open(char *dev_name, int flags)
+struct rddma_dev *rddma_open(char *dev_name, int timeout)
 {
 	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
 
-	dev->to = -1;
-	dev->fd = open(dev_name ? dev_name : "/dev/rddma",flags ? flags : O_RDWR);
+	dev->to = timeout;
+	dev->fd = open(dev_name ? dev_name : "/dev/rddma", (O_NONBLOCK | O_RDWR));
 
 	if ( dev->fd < 0 ) {
 		perror("failed");
@@ -121,69 +121,6 @@ int rddma_poll_read(struct rddma_dev *dev)
 	return poll(&fd,1,dev->to);
 }
 
-int rddma_do_cmd(struct rddma_dev *dev, char **result,  char *f, ...)
-{
-	va_list ap;
-	int ret;
-
-	va_start(ap,f);
-
-	ret = vfprintf(dev->file,f,ap);
-	if (ret < 0)
-		goto out;
-
-	ret = fflush(dev->file);
-	if (ret < 0)
-		goto out;
-
-	ret = fscanf(dev->file,"%a[^\n]",result);
-out:
-	va_end(ap);
-	return ret;
-}
-
-int rddma_do_cmd_blk(struct rddma_dev *dev, char **result,  char *f, ...)
-{
-	va_list ap;
-	int ret;
-
-	va_start(ap,f);
-
-	ret = vfprintf(dev->file,f,ap);
-	if (ret < 0)
-		goto out;
-
-	ret = fflush(dev->file);
-	if (ret < 0)
-		goto out;
-
-	ret = rddma_poll_read(dev);
-	if (ret <= 0)
-		goto out;
-
-	ret = fscanf(dev->file,"%a[^\n]",result);
-out:
-	va_end(ap);
-	return ret;
-}
-
-int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
-{
-	va_list ap;
-	int ret;
-
-	va_start(ap,f);
-
-	ret = vfprintf(dev->file,f,ap);
-	if (ret < 0)
-		goto out;
-
-	fflush(dev->file);
-out:
-	va_end(ap);
-	return ret;
-}
-
 int rddma_get_result(struct rddma_dev *dev, char **result)
 {
 	int ret;
@@ -195,11 +132,46 @@ int rddma_get_result(struct rddma_dev *dev, char **result)
 
 		ret = rddma_poll_read(dev);
 		if (ret <= 0)
-			goto out;
+			return ret;
 
 		ret = fscanf(dev->file,"%a[^\n]\n",result);
 	}
-out:
+	return ret;
+}
+
+int rddma_invoke_cmd_ap(struct rddma_dev *dev, char *f, va_list ap)
+{
+	int ret;
+	ret = vfprintf(dev->file,f,ap);
+	fflush(dev->file);
+	return ret;
+}
+
+int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap,f);
+	ret = rddma_invoke_cmd_ap(dev,f,ap);
+	va_end(ap);
+
+	return ret;
+}
+
+int rddma_do_cmd(struct rddma_dev *dev, char **result,  char *f, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap,f);
+	ret = rddma_invoke_cmd_ap(dev,f,ap);
+	va_end(ap);
+	if (ret < 0)
+		return ret;
+
+	ret = rddma_get_result(dev,result);
+
 	return ret;
 }
 
@@ -248,23 +220,13 @@ int rddma_get_result_async(struct rddma_dev *dev)
 	char *result = NULL;
 	struct rddma_async_handle *handle = NULL;
 
-	ret = fscanf(dev->file,"%a[^\n]\n",&result);
-
-	while (ret <= 0 && ferror(dev->file)) {
-		clearerr(dev->file);
-
-		ret = rddma_poll_read(dev);
-		if (ret <= 0)
-			goto out;
-
-		ret = fscanf(dev->file,"%a[^\n]\n",&result);
-	}
+	ret = rddma_get_result(dev,&result);
+	if (ret < 0)
+		return ret;
 
 	reply = strstr(result,"reply");
-	if (reply == NULL) {
-		ret = 0;
+	if (reply == NULL) 
 		goto out;
-	}
 
 	ret = sscanf(reply,"reply(%p)",(void *) &handle);
 	if (ret < 1)
@@ -273,9 +235,11 @@ int rddma_get_result_async(struct rddma_dev *dev)
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
 		sem_post(&handle->sem);
+		return 0;
 	}
-	else
-		ret = -EINVAL;
+	
 out:
+	ret = -EINVAL;
+	free(result);
 	return ret;
 }

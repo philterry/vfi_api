@@ -151,7 +151,6 @@ extern void rddma_close(struct rddma_dev *);
 extern long rddma_get_hex_option(char *, char *);
 extern int rddma_poll_read(struct rddma_dev *);
 extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
-extern int rddma_do_cmd_blk(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
 extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...) __attribute__((format(printf,2,3)));
 extern int rddma_get_result(struct rddma_dev *, char **);
 extern void *rddma_alloc_async_handle(void);
