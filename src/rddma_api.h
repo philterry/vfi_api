@@ -18,7 +18,7 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
-
+#include <stdarg.h>
  /*
  * This were good at the time of 2.6.21-rc5.mm4 ...
  */
@@ -129,6 +129,36 @@ static inline int eventfd(int count) {
 	return syscall(__NR_eventfd, count);
 }
 
+struct rddma_dev {
+	int fd;
+	FILE *file;
+	aio_context_t ctx;
+	int to;
+};
+
+extern struct rddma_dev *rddma_open(char *, int);
+extern void rddma_close(struct rddma_dev *);
+
+extern long rddma_get_hex_option(char *, char *);
+extern int rddma_poll_read(struct rddma_dev *);
+
+extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
+extern int rddma_do_cmd_ap(struct rddma_dev *, char **, char *, va_list);
+extern int rddma_do_cmd_str(struct rddma_dev *, char **, char *, int);
+
+extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...) __attribute__((format(printf,2,3)));
+extern int rddma_invoke_cmd_ap(struct rddma_dev *, char *, va_list);
+extern int rddma_invoke_cmd_str(struct rddma_dev *, char *, int);
+
+extern int rddma_get_result(struct rddma_dev *, char **);
+
+extern void *rddma_alloc_async_handle(void);
+extern int rddma_free_async_handle(void *);
+
+extern int rddma_get_async_handle(void *, char **);
+extern int rddma_get_result_async(struct rddma_dev *);
+
+extern int rddma_get_eventfd(int);
 extern void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
 			     int64_t offset, int afd);
 extern void asyio_prep_pwrite(struct iocb *, int, void const *, int, int64_t, int);
@@ -138,23 +168,4 @@ extern void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int
 			       int64_t offset, int afd);
 extern int waitasync(int, int);
 
-struct rddma_dev {
-	int fd;
-	FILE *file;
-	aio_context_t ctx;
-	int to;
-};
-
-extern int rddma_get_eventfd(int);
-extern struct rddma_dev *rddma_open(char *, int);
-extern void rddma_close(struct rddma_dev *);
-extern long rddma_get_hex_option(char *, char *);
-extern int rddma_poll_read(struct rddma_dev *);
-extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
-extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...) __attribute__((format(printf,2,3)));
-extern int rddma_get_result(struct rddma_dev *, char **);
-extern void *rddma_alloc_async_handle(void);
-extern int rddma_get_async_handle(void *, char **);
-extern int rddma_free_async_handle(void *);
-extern int rddma_get_result_async(struct rddma_dev *);
 #endif	/* RDDMA_API_H */

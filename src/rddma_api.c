@@ -3,20 +3,6 @@
 #include <stdarg.h>
 #include <semaphore.h>
 
-int rddma_get_eventfd(int count)
-{
-	int afd;
-
-	/* Initialize event fd */
-	if ((afd = eventfd(count)) == -1) {
-		perror("eventfd");
-		return -1;
-	}
-	fcntl(afd, F_SETFL, fcntl(afd, F_GETFL, 0) | O_NONBLOCK);
-
-	return afd;
-}
-
 struct rddma_dev *rddma_open(char *dev_name, int timeout)
 {
 	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
@@ -49,70 +35,6 @@ long rddma_get_hex_option(char *str, char *name)
 		if ((val = strstr(opt,"(")))
 			return strtoul(val,0,16);
 	return 0;
-}
-
-void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
-		       int64_t offset, int afd)
-{
-	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = fd;
-	iocb->aio_lio_opcode = IOCB_CMD_PREADV;
-	iocb->aio_reqprio = 0;
-	iocb->aio_buf = (u_int64_t) iov;
-	iocb->aio_nbytes = nr_segs;
-	iocb->aio_offset = offset;
-	iocb->aio_flags = IOCB_FLAG_RESFD;
-	iocb->aio_resfd = afd;
-}
-
-void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
-			int64_t offset, int afd)
-{
-	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = fd;
-	iocb->aio_lio_opcode = IOCB_CMD_PWRITEV;
-	iocb->aio_reqprio = 0;
-	iocb->aio_buf = (u_int64_t) iov;
-	iocb->aio_nbytes = nr_segs;
-	iocb->aio_offset = offset;
-	iocb->aio_flags = IOCB_FLAG_RESFD;
-	iocb->aio_resfd = afd;
-}
-
-void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
-		      int64_t offset, int afd)
-{
-	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = fd;
-	iocb->aio_lio_opcode = IOCB_CMD_PREAD;
-	iocb->aio_reqprio = 0;
-	iocb->aio_buf = (u_int64_t) buf;
-	iocb->aio_nbytes = nr_segs;
-	iocb->aio_offset = offset;
-	iocb->aio_flags = IOCB_FLAG_RESFD;
-	iocb->aio_resfd = afd;
-}
-
-void asyio_prep_pwrite(struct iocb *iocb, int fd, void const *buf, int nr_segs,
-		       int64_t offset, int afd)
-{
-	memset(iocb, 0, sizeof(*iocb));
-	iocb->aio_fildes = fd;
-	iocb->aio_lio_opcode = IOCB_CMD_PWRITE;
-	iocb->aio_reqprio = 0;
-	iocb->aio_buf = (u_int64_t) (unsigned long) buf;
-	iocb->aio_nbytes = nr_segs;
-	/* Address of string for rddma reply */
-	iocb->aio_offset = (u_int64_t) (unsigned long) malloc(256);
-	iocb->aio_flags = IOCB_FLAG_RESFD;
-	iocb->aio_resfd = afd;
-}
-
-
-int waitasync(int afd, int timeout)
-{
-	struct pollfd fd = {afd,POLLIN,0};
-	return poll(&fd,1,timeout);
 }
 
 int rddma_poll_read(struct rddma_dev *dev)
@@ -159,19 +81,40 @@ int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
 	return ret;
 }
 
+int rddma_invoke_cmd_str(struct rddma_dev *dev, char *cmd, int size)
+{
+	return fwrite(cmd,size,1,dev->file);
+}
+
+int rddma_do_cmd_ap(struct rddma_dev *dev, char **result, char *f, va_list ap)
+{
+	int ret;
+	ret = rddma_invoke_cmd_ap(dev,f,ap);
+	if (ret < 0)
+		return ret;
+
+	ret = rddma_get_result(dev,result);
+	return ret;
+}
+
 int rddma_do_cmd(struct rddma_dev *dev, char **result,  char *f, ...)
 {
 	va_list ap;
 	int ret;
 
 	va_start(ap,f);
-	ret = rddma_invoke_cmd_ap(dev,f,ap);
+	ret = rddma_do_cmd_ap(dev,result,f,ap);
 	va_end(ap);
+	return ret;
+}
+
+int rddma_do_cmd_str(struct rddma_dev *dev, char **result, char *cmd, int size)
+{
+	int ret;
+	ret = rddma_invoke_cmd_str(dev,cmd,size);
 	if (ret < 0)
 		return ret;
-
 	ret = rddma_get_result(dev,result);
-
 	return ret;
 }
 
@@ -243,3 +186,82 @@ out:
 	free(result);
 	return ret;
 }
+
+int rddma_get_eventfd(int count)
+{
+	int afd;
+
+	/* Initialize event fd */
+	if ((afd = eventfd(count)) == -1) {
+		perror("eventfd");
+		return -1;
+	}
+	fcntl(afd, F_SETFL, fcntl(afd, F_GETFL, 0) | O_NONBLOCK);
+
+	return afd;
+}
+
+void asyio_prep_preadv(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+		       int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PREADV;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) iov;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+void asyio_prep_pwritev(struct iocb *iocb, int fd, struct iovec *iov, int nr_segs,
+			int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PWRITEV;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) iov;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
+		      int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PREAD;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) buf;
+	iocb->aio_nbytes = nr_segs;
+	iocb->aio_offset = offset;
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+void asyio_prep_pwrite(struct iocb *iocb, int fd, void const *buf, int nr_segs,
+		       int64_t offset, int afd)
+{
+	memset(iocb, 0, sizeof(*iocb));
+	iocb->aio_fildes = fd;
+	iocb->aio_lio_opcode = IOCB_CMD_PWRITE;
+	iocb->aio_reqprio = 0;
+	iocb->aio_buf = (u_int64_t) (unsigned long) buf;
+	iocb->aio_nbytes = nr_segs;
+	/* Address of string for rddma reply */
+	iocb->aio_offset = (u_int64_t) (unsigned long) malloc(256);
+	iocb->aio_flags = IOCB_FLAG_RESFD;
+	iocb->aio_resfd = afd;
+}
+
+
+int waitasync(int afd, int timeout)
+{
+	struct pollfd fd = {afd,POLLIN,0};
+	return poll(&fd,1,timeout);
+}
+
