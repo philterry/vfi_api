@@ -27,14 +27,60 @@ void rddma_close(struct rddma_dev *dev)
 	free(dev);
 }
 
-long rddma_get_hex_option(char *str, char *name)
+int rddma_get_option(char *str, char *name)
 {
-	char *opt;
-	char *val;
-	if ((opt = strstr(str,name)))
-		if ((val = strstr(opt,"(")))
-			return strtoul(val+1,0,16);
+	if (str && name)
+		return (strstr(str,name) != NULL);
 	return 0;
+}
+
+int rddma_get_str_arg(char *str, char *name, char **val)
+{
+	char *var = NULL;
+	
+	*val = NULL;
+
+	if (str)
+		if ((var = strstr(str,name))) {
+			char *arg;
+			arg = var + strlen(name) + 1;
+			if (*arg == '(') {
+				sscanf(arg+1,"%a[^)]",val);
+				return 1;
+			}
+			return 0;
+		}
+
+	return -1 ;
+}
+
+int rddma_get_long_arg(char *str, char *name, void **value, int base)
+{
+	char *val = NULL;
+	int ret;
+	ret = rddma_get_str_arg(str,name,&val);
+	if(ret > 0) {
+		*value = (void *)strtoul(val,0,base);
+		free(val);
+		return ret;
+	}
+	return 0;
+}
+
+long rddma_get_hex_arg(char *str, char *name)
+{
+	long int val;
+	if (rddma_get_long_arg(str,name,(void *)&val,16))
+		return val;
+	return -1;
+}
+
+long rddma_get_dec_arg(char *str, char *name)
+{
+	long val;
+	if (rddma_get_long_arg(str,name,(void *)&val,10))
+		return val;
+	return -1;
 }
 
 int rddma_poll_read(struct rddma_dev *dev)

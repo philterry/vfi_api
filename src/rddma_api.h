@@ -139,7 +139,12 @@ struct rddma_dev {
 extern struct rddma_dev *rddma_open(char *, int);
 extern void rddma_close(struct rddma_dev *);
 
-extern long rddma_get_hex_option(char *, char *);
+extern int rddma_get_option(char *str, char *name);
+extern int rddma_get_str_arg(char *str, char *name, char **val);
+extern int rddma_get_long_arg(char *str, char *name, void **value, int base);
+extern long rddma_get_dec_arg(char *str, char *name);
+extern long rddma_get_hex_arg(char *str, char *name);
+
 extern int rddma_poll_read(struct rddma_dev *);
 
 extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...) __attribute__((format(printf,3,4)));
