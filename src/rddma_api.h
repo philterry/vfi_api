@@ -141,7 +141,7 @@ extern void rddma_close(struct rddma_dev *);
 
 extern int rddma_get_option(char *str, char *name);
 extern int rddma_get_str_arg(char *str, char *name, char **val);
-extern int rddma_get_long_arg(char *str, char *name, void **value, int base);
+extern int rddma_get_long_arg(char *str, char *name, long *value, int base);
 extern long rddma_get_dec_arg(char *str, char *name);
 extern long rddma_get_hex_arg(char *str, char *name);
 

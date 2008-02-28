@@ -43,7 +43,7 @@ int rddma_get_str_arg(char *str, char *name, char **val)
 	if (str)
 		if ((var = strstr(str,name))) {
 			char *arg;
-			arg = var + strlen(name) + 1;
+			arg = var + strlen(name);
 			if (*arg == '(') {
 				sscanf(arg+1,"%a[^)]",val);
 				return 1;
@@ -54,13 +54,13 @@ int rddma_get_str_arg(char *str, char *name, char **val)
 	return -1 ;
 }
 
-int rddma_get_long_arg(char *str, char *name, void **value, int base)
+int rddma_get_long_arg(char *str, char *name, long *value, int base)
 {
 	char *val = NULL;
 	int ret;
 	ret = rddma_get_str_arg(str,name,&val);
 	if(ret > 0) {
-		*value = (void *)strtoul(val,0,base);
+		*value = strtoul(val,0,base);
 		free(val);
 		return ret;
 	}
@@ -69,8 +69,8 @@ int rddma_get_long_arg(char *str, char *name, void **value, int base)
 
 long rddma_get_hex_arg(char *str, char *name)
 {
-	long int val;
-	if (rddma_get_long_arg(str,name,(void *)&val,16))
+	long val;
+	if (rddma_get_long_arg(str,name,&val,16))
 		return val;
 	return -1;
 }
@@ -78,7 +78,7 @@ long rddma_get_hex_arg(char *str, char *name)
 long rddma_get_dec_arg(char *str, char *name)
 {
 	long val;
-	if (rddma_get_long_arg(str,name,(void *)&val,10))
+	if (rddma_get_long_arg(str,name,&val,10))
 		return val;
 	return -1;
 }
@@ -220,7 +220,7 @@ int rddma_get_result_async(struct rddma_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	handle = (struct rddma_async_handle *)rddma_get_hex_option(result,"reply");
+	handle = (struct rddma_async_handle *)rddma_get_hex_arg(result,"reply");
 
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
