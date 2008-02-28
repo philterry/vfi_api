@@ -33,7 +33,7 @@ long rddma_get_hex_option(char *str, char *name)
 	char *val;
 	if ((opt = strstr(str,name)))
 		if ((val = strstr(opt,"(")))
-			return strtoul(val,0,16);
+			return strtoul(val+1,0,16);
 	return 0;
 }
 
@@ -159,7 +159,6 @@ int rddma_free_async_handle(void *h)
 int rddma_get_result_async(struct rddma_dev *dev)
 {
 	int ret;
-	char *reply = NULL;
 	char *result = NULL;
 	struct rddma_async_handle *handle = NULL;
 
@@ -167,13 +166,7 @@ int rddma_get_result_async(struct rddma_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	reply = strstr(result,"reply");
-	if (reply == NULL) 
-		goto out;
-
-	ret = sscanf(reply,"reply(%p)",(void *) &handle);
-	if (ret < 1)
-		goto out;
+	handle = (struct rddma_async_handle *)rddma_get_hex_option(result,"reply");
 
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
