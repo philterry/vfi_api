@@ -83,7 +83,15 @@ int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
 
 int rddma_invoke_cmd_str(struct rddma_dev *dev, char *cmd, int size)
 {
-	return fwrite(cmd,size,1,dev->file);
+	int ret;
+	if (size) 
+		ret = fwrite(cmd,size,1,dev->file);
+	else 
+		ret = fprintf(dev->file,"%s\n",cmd);
+
+	fflush(dev->file);
+	return ret;
+
 }
 
 int rddma_do_cmd_ap(struct rddma_dev *dev, char **result, char *f, va_list ap)
