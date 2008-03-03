@@ -22,7 +22,8 @@ re line termination which is difficult to handle if we keep having to
 check the mode of the file handle.
 
 rddma_open
-rddma_do_cmd()
+while (!done)
+      rddma_do_cmd()
 rddma_close
 
 = Non-Blocking
@@ -54,9 +55,11 @@ completions. Thus the execution sequence consists of an an endless
 stream of interleaved write/poll/read sequences.
 
 rddma_open
-rddma_invoke_cmd
-...
-rddma_get_reply
+while (!done) {
+      rddma_invoke_cmd
+      ...
+      rddma_get_reply
+}
 rddma_close
 
 == Non-Blocking Out of Order(NBOO)
@@ -75,19 +78,16 @@ rddma_open
 
 per thread
     rddma_alloc_async_handle
-    rddma_invoke_cmd with handle
+    while (!done) {
+            rddma_invoke_cmd with handle
 
-    rddma_get_async_handle to get reply
-
+	    rddma_get_async_handle to get reply
+    }
     rddma_free_async_handle
 
 in main thread
-   rddma_get_result_async
+   while (!done)
+      rddma_get_result_async
+
 rddma_close
-
-= AIO Signal
-aio signal
-
-= AIO Eventfd
-aio eventfd
 
