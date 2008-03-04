@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: librddma_api
+Description: API for Rincon Distributed DMA (RDDMA) Driver.
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lrddma_api
+Cflags: -I${includedir} 
+

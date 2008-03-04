@@ -36,5 +36,5 @@ AC_SUBST(RDDMA_API_LIBDIR)
 RDDMA_API_LIBS="-l${PACKAGE}"
 AC_SUBST(RDDMA_API_LIBS)
 AC_CONFIG_FILES([Makefile
-                 src/Makefile doc/Makefile m4/Makefile mmcrddma_api-config])
+                 src/Makefile doc/Makefile m4/Makefile mmcrddma_api-config librddma_api.pc])
 AC_OUTPUT
