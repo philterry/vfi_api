@@ -174,26 +174,29 @@ int rddma_do_cmd_str(struct rddma_dev *dev, char **result, char *cmd, int size)
 
 struct rddma_async_handle {
 	char *result;
+	void *e;
 	struct rddma_async_handle *c;
 	sem_t sem;
 };
 
-void *rddma_alloc_async_handle()
+void *rddma_alloc_async_handle(void *e)
 {
 	struct rddma_async_handle *handle = calloc(1,sizeof(*handle));
 	
 	handle->c = (void *)handle;
+	handle->e = e;
 	sem_init(&handle->sem,0,0);
 
 	return (void *)handle;
 }
 
-int rddma_get_async_handle(void *h, char **result)
+int rddma_get_async_handle(void *h, char **result, void **e)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
 		sem_wait(&handle->sem);
 		*result = handle->result;
+		*e = handle->e;
 		return 0;
 	}
 	return -EINVAL;

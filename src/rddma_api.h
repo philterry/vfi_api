@@ -157,10 +157,10 @@ extern int rddma_invoke_cmd_str(struct rddma_dev *, char *, int);
 
 extern int rddma_get_result(struct rddma_dev *, char **);
 
-extern void *rddma_alloc_async_handle(void);
+extern void *rddma_alloc_async_handle(void *);
 extern int rddma_free_async_handle(void *);
 
-extern int rddma_get_async_handle(void *, char **);
+extern int rddma_get_async_handle(void *, char **, void **);
 extern int rddma_get_result_async(struct rddma_dev *);
 
 extern int rddma_get_eventfd(int);

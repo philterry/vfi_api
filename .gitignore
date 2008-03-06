@@ -25,3 +25,4 @@ src/librddma_api.la
 src/rddma_api.lo
 src/rddma_api.o
 *.pc
+TAGS
