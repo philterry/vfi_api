@@ -3,9 +3,175 @@
 #include <stdarg.h>
 #include <semaphore.h>
 
-struct rddma_dev *rddma_open(char *dev_name, int timeout)
+/*
+ * Generalize input of command strings from multiple sources, command
+ * line parameters (inputs), stream read (from files or stdin).
+ */
+static int get_file(void *s, char **command)
+{
+	int ret;
+	FILE *fp = (FILE *)s;
+	ret = fscanf(fp,"%a[^\n]",command);
+	if (ret > 0)
+		fgetc(fp);
+	return ret > 0;
+}
+
+int rddma_setup_file(struct rddma_source **src, FILE *fp)
+{
+	struct rddma_source *h = malloc(sizeof(*h));
+	*src = h;
+
+	if (fp == NULL)
+		return -EINVAL;
+
+	if (h == NULL)
+		return -ENOMEM;
+
+	h->f = get_file;
+	h->h = (void *)fp;
+
+	return 0;
+}
+
+void *rddma_find_npc(struct rddma_npc *elems, char *name)
+{
+	struct rddma_npc *l;
+	int size = strlen(name);
+
+	for (l = elems; l; l = l->next) {
+		if ((size == l->size) && !strcmp(l->name,name)) {
+			return l->e;
+		}
+	}
+	return NULL;
+}
+
+void *rddma_find_func(struct rddma_dev *dev, char *name)
+{
+	void *ret;
+	ret = rddma_find_npc(dev->funcs,name);
+	return ret;
+}
+
+void *rddma_find_map(struct rddma_dev *dev, char *name)
+{
+	void * ret;
+	ret = rddma_find_npc(dev->maps,name);
+	return ret;
+}
+
+void *rddma_find_event(struct rddma_dev *dev, char *name)
+{
+	void *ret;
+	ret = rddma_find_npc(dev->events,name);
+	return ret;
+}
+
+/* Register closures in global lists, eventually dev? */
+void *rddma_register_npc(struct rddma_npc **elems, char *name, void *e)
+{
+	struct rddma_npc *l;
+	if (rddma_find_npc(*elems,name))
+		return 0;
+	l = calloc(1,sizeof(*l)+strlen(name)+1);
+	l->size = strlen(name);
+	strcpy(l->b,name);
+	l->name = l->b;
+	l->e = e;
+	l->next = *elems;
+	*elems = l;
+	return e;
+}
+
+void *rddma_register_map(struct rddma_dev *dev,char *name, void *e)
+{
+	return rddma_register_npc(&dev->maps,name,e);
+}
+
+void *rddma_register_func(struct rddma_dev *dev,char *name, void *e)
+{
+	return rddma_register_npc(&dev->funcs,name,e);
+}
+
+void *rddma_register_event(struct rddma_dev *dev, char *name, void *e)
+{
+	return rddma_register_npc(&dev->events,name,e);
+}
+
+int rddma_get_cmd(struct rddma_source *src, char **command)
+{
+	if (*command)
+		free(*command);
+
+	return (src->f(src->h,command) > 0);
+}
+
+/* Find by name and execute an internal command. If we make internal
+ * commands closures then we can do more than just pass them the
+ * command string... */
+void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_cmd_elem *commands, char *buf, int sz)
+{
+	struct rddma_cmd_elem *cmd;
+	char *term;
+	term = strstr(buf,"://");
+	
+	if (term) {
+		int size = term - buf;
+		
+		for (cmd = commands;cmd && cmd->f; cmd = cmd->next)
+			if (size == cmd->size && !strncmp(buf,cmd->cmd,size))
+				return cmd->f(dev,term+3);
+	}
+	return 0;
+}
+
+void *rddma_find_pre_cmd(struct rddma_dev *dev, char *buf, int sz)
+{
+	return rddma_find_cmd(dev,dev->pre_commands,buf,sz);
+}
+
+void *rddma_find_post_cmd(struct rddma_dev *dev, char *buf, int sz)
+{
+	return rddma_find_cmd(dev,dev->post_commands,buf,sz);
+}
+
+/* 
+ * Register commands to the global lists... should eventually pass dev
+ * or something... */
+int register_pre_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,char *))
+{
+	struct rddma_cmd_elem *c;
+	int len = strlen(name);
+	c = calloc(1,sizeof(*c)+len+1);
+	strcpy(c->b,name);
+	c->cmd = c->b;
+	c->size = len;
+	c->f = f;
+	c->next = dev->pre_commands;
+	dev->pre_commands = c;
+}
+
+int register_post_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,char *))
+{
+	struct rddma_cmd_elem *c;
+	int len = strlen(name);
+	c = calloc(1,sizeof(*c)+len+1);
+	strcpy(c->b,name);
+	c->cmd = c->b;
+	c->size = len;
+	c->f = f;
+	c->next = dev->post_commands;
+	dev->post_commands = c;
+}
+
+int rddma_open(struct rddma_dev **device, char *dev_name, int timeout)
 {
 	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
+
+	*device = dev;
+	if (dev == NULL)
+		return -ENOMEM;
 
 	dev->to = timeout;
 	dev->fd = open(dev_name ? dev_name : "/dev/rddma", (O_NONBLOCK | O_RDWR));
@@ -18,7 +184,7 @@ struct rddma_dev *rddma_open(char *dev_name, int timeout)
 
 	dev->file = fdopen(dev->fd,"r+");
 
-	return dev;
+	return 0;
 }
 
 void rddma_close(struct rddma_dev *dev)
@@ -183,10 +349,11 @@ void *rddma_alloc_async_handle(void *e)
 {
 	struct rddma_async_handle *handle = calloc(1,sizeof(*handle));
 	
-	handle->c = (void *)handle;
-	handle->e = e;
-	sem_init(&handle->sem,0,0);
-
+	if (handle) {
+		handle->c = (void *)handle;
+		handle->e = e;
+		sem_init(&handle->sem,0,0);
+	}
 	return (void *)handle;
 }
 
@@ -197,6 +364,16 @@ int rddma_get_async_handle(void *h, char **result, void **e)
 		sem_wait(&handle->sem);
 		*result = handle->result;
 		*e = handle->e;
+		return 0;
+	}
+	return -EINVAL;
+}
+
+int rddma_set_async_handle(void *h, void *e)
+{
+	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	if (handle->c == handle) {
+		handle->e = e;
 		return 0;
 	}
 	return -EINVAL;
@@ -213,7 +390,7 @@ int rddma_free_async_handle(void *h)
 	return -EINVAL;
 }
 
-int rddma_get_result_async(struct rddma_dev *dev)
+int rddma_put_async_handle(struct rddma_dev *dev)
 {
 	int ret;
 	char *result = NULL;

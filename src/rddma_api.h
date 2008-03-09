@@ -134,9 +134,54 @@ struct rddma_dev {
 	FILE *file;
 	aio_context_t ctx;
 	int to;
+	struct rddma_npc *funcs;
+	struct rddma_npc *maps;
+	struct rddma_npc *events;
+	struct rddma_cmd_elem *pre_commands;
+	struct rddma_cmd_elem *post_commands;
 };
 
-extern struct rddma_dev *rddma_open(char *, int);
+struct rddma_source {
+	int (*f)(void *, char **);
+	void *h;
+};
+
+extern int rddma_setup_file(struct rddma_source **,FILE *);
+extern int rddma_get_cmd(struct rddma_source *,char **);
+extern void *rddma_find_cmd(struct rddma_dev *, struct rddma_cmd_elem *, char *, int);
+extern void *rddma_find_pre_cmd(struct rddma_dev *, char *, int);
+extern void *rddma_find_post_cmd(struct rddma_dev *, char *, int);
+
+extern int register_pre_cmd(struct rddma_dev *, char *, void **(*)(struct rddma_dev *,char *));
+extern int register_post_cmd(struct rddma_dev *, char *, void **(*)(struct rddma_dev *,char *));
+
+struct rddma_npc {
+	struct rddma_npc *next;
+	char *name;		/* name of closure self->b */
+	int size;		/* size of name */
+	void *e;		/* closure */
+	char b[];		/* buffer for name */
+};
+
+extern void *rddma_register_npc(struct rddma_npc **, char *, void *);
+extern void *rddma_register_func(struct rddma_dev *, char *, void *);
+extern void *rddma_register_map(struct rddma_dev *, char *, void *);
+extern void *rddma_register_event(struct rddma_dev *, char *, void *);
+extern void *rddma_find_npc(struct rddma_npc *, char *);
+extern void *rddma_find_func(struct rddma_dev *, char *);
+extern void *rddma_find_map(struct rddma_dev *, char *);
+extern void *rddma_find_event(struct rddma_dev *, char *);
+
+struct rddma_cmd_elem {
+	struct rddma_cmd_elem *next;
+	void **(*f)(struct rddma_dev *, char *);
+	int size;
+	char *cmd;		/* this is the name of the command is self->b */
+	char b[];		/* Holds the name of the card, pointed
+				 * to by cmd above. */
+};
+
+extern int rddma_open(struct rddma_dev **, char *, int);
 extern void rddma_close(struct rddma_dev *);
 
 extern int rddma_get_option(char *str, char *name);
@@ -161,7 +206,8 @@ extern void *rddma_alloc_async_handle(void *);
 extern int rddma_free_async_handle(void *);
 
 extern int rddma_get_async_handle(void *, char **, void **);
-extern int rddma_get_result_async(struct rddma_dev *);
+extern int rddma_set_async_handle(void *, void *);
+extern int rddma_put_async_handle(struct rddma_dev *);
 
 extern int rddma_get_eventfd(int);
 extern void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
