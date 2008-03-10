@@ -17,9 +17,9 @@ static int get_file(void *s, char **command)
 	return ret > 0;
 }
 
-int rddma_setup_file(struct rddma_source **src, FILE *fp)
+int rddma_setup_file(struct rddma_dev *dev, struct rddma_source **src, FILE *fp)
 {
-	struct rddma_source *h = malloc(sizeof(*h));
+	struct rddma_source *h = malloc(sizeof(*h)+sizeof(void *));
 	*src = h;
 
 	if (fp == NULL)
@@ -29,7 +29,8 @@ int rddma_setup_file(struct rddma_source **src, FILE *fp)
 		return -ENOMEM;
 
 	h->f = get_file;
-	h->h = (void *)fp;
+	h->d = dev;
+	h->h[0] = (void *)fp;
 
 	return 0;
 }
@@ -110,7 +111,7 @@ int rddma_get_cmd(struct rddma_source *src, char **command)
 /* Find by name and execute an internal command. If we make internal
  * commands closures then we can do more than just pass them the
  * command string... */
-void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_cmd_elem *commands, char *buf, int sz)
+void *rddma_find_cmd(struct rddma_dev *dev, void *ah, struct rddma_cmd_elem *commands, char *buf)
 {
 	struct rddma_cmd_elem *cmd;
 	char *term;
@@ -121,25 +122,49 @@ void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_cmd_elem *commands, cha
 		
 		for (cmd = commands;cmd && cmd->f; cmd = cmd->next)
 			if (size == cmd->size && !strncmp(buf,cmd->cmd,size))
-				return cmd->f(dev,term+3);
+				return cmd->f(dev,ah,term+3);
 	}
 	return 0;
 }
 
-void *rddma_find_pre_cmd(struct rddma_dev *dev, char *buf, int sz)
+void *rddma_find_pre_cmd(struct rddma_dev *dev, void *ah, char *buf)
 {
-	return rddma_find_cmd(dev,dev->pre_commands,buf,sz);
+	return rddma_find_cmd(dev, ah, dev->pre_commands, buf);
 }
 
-void *rddma_find_post_cmd(struct rddma_dev *dev, char *buf, int sz)
+void *rddma_find_post_cmd(struct rddma_dev *dev, void *ah, char *buf)
 {
-	return rddma_find_cmd(dev,dev->post_commands,buf,sz);
+	return rddma_find_cmd(dev, ah, dev->post_commands, buf);
+}
+
+void *rddma_do_post_cmd(void *e)
+{
+	struct {
+		void *f;
+		struct rddma_dev *dev;
+		void *ah;
+		char *buf;
+	} *me = e;
+	return rddma_find_post_cmd(me->dev,me->ah,me->buf);
+}
+
+void * rddma_make_post_cmd(struct rddma_dev *dev, void *ah, char *buf)
+{
+	void **e = calloc(4,sizeof(void *));
+	if (e == NULL)
+		return e;
+
+	e[0] = rddma_do_post_cmd;
+	e[1] = (void *)dev;
+	e[2] = ah;
+	e[3] = (void *)buf;
+	return e;
 }
 
 /* 
  * Register commands to the global lists... should eventually pass dev
  * or something... */
-int register_pre_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,char *))
+int rddma_register_pre_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,void *,char *))
 {
 	struct rddma_cmd_elem *c;
 	int len = strlen(name);
@@ -152,7 +177,7 @@ int register_pre_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma
 	dev->pre_commands = c;
 }
 
-int register_post_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,char *))
+int rddma_register_post_cmd(struct rddma_dev *dev, char *name, void **(*f)(struct rddma_dev *,void *,char *))
 {
 	struct rddma_cmd_elem *c;
 	int len = strlen(name);
@@ -342,7 +367,9 @@ struct rddma_async_handle {
 	char *result;
 	void *e;
 	struct rddma_async_handle *c;
-	sem_t sem;
+	sem_t wait_sem;
+	sem_t access_sem;
+	int count;
 };
 
 void *rddma_alloc_async_handle(void *e)
@@ -351,46 +378,90 @@ void *rddma_alloc_async_handle(void *e)
 	
 	if (handle) {
 		handle->c = (void *)handle;
+		sem_init(&handle->wait_sem,0,0);
+		sem_init(&handle->access_sem,0,1);
+		handle->count = 1;
 		handle->e = e;
-		sem_init(&handle->sem,0,0);
 	}
 	return (void *)handle;
 }
 
-int rddma_get_async_handle(void *h, char **result, void **e)
+void *rddma_wait_async_handle(void *h, char **result, void **e)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
-		sem_wait(&handle->sem);
+		if (sem_wait(&handle->access_sem) < 0)
+			return 0;
+		handle->count++;
+		sem_post(&handle->access_sem);
+		if (sem_wait(&handle->wait_sem) < 0)
+			return 0;
 		*result = handle->result;
 		*e = handle->e;
-		return 0;
+		if (sem_wait(&handle->access_sem) < 0)
+			return 0;
+		handle->count--;
+		if (handle->count == 0) {
+			handle->c = 0;
+			sem_destroy(&handle->wait_sem);
+			sem_destroy(&handle->access_sem);
+			free(handle);
+			return 0;
+		}
+		sem_post(&handle->access_sem);
+		return h;
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int rddma_set_async_handle(void *h, void *e)
+void *rddma_set_async_handle(void *h, void *e)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
 		handle->e = e;
-		return 0;
+		return h;
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int rddma_free_async_handle(void *h)
+void *rddma_get_async_handle(void *h)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
-		sem_destroy(&handle->sem);
-		free(handle);
-		return 0;
+		if (sem_wait(&handle->access_sem) < 0)
+			return 0;
+		handle->count++;
+		sem_post(&handle->access_sem);
+		return h;
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int rddma_put_async_handle(struct rddma_dev *dev)
+void *rddma_put_async_handle(void *h)
+{
+	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	if (handle->c == handle) {
+		if (sem_wait(&handle->access_sem) < 0)
+			return 0;
+		handle->count--;
+		if (handle->count == 0) {
+			handle->c = 0;
+			sem_destroy(&handle->wait_sem);
+			sem_destroy(&handle->access_sem);
+			free(handle);
+			return 0;
+		}
+		sem_post(&handle->access_sem);
+		return 0;
+	}
+	return 0;
+}
+void *rddma_free_async_handle(void *h)
+{
+	return rddma_put_async_handle(h);
+}
+
+int rddma_post_async_handle(struct rddma_dev *dev)
 {
 	int ret;
 	char *result = NULL;
@@ -404,7 +475,7 @@ int rddma_put_async_handle(struct rddma_dev *dev)
 
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
-		sem_post(&handle->sem);
+		sem_post(&handle->wait_sem);
 		return 0;
 	}
 	
