@@ -142,7 +142,7 @@ struct rddma_dev {
 };
 
 struct rddma_source {
-	int (*f)(void *, char **);
+	int (*f)(void **, char **);
 	struct rddma_dev *d;
 	void *h[];
 };

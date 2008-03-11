@@ -7,10 +7,10 @@
  * Generalize input of command strings from multiple sources, command
  * line parameters (inputs), stream read (from files or stdin).
  */
-static int get_file(void *s, char **command)
+static int get_file(void **s, char **command)
 {
 	int ret;
-	FILE *fp = (FILE *)s;
+	FILE *fp = *s;
 	ret = fscanf(fp,"%a[^\n]",command);
 	if (ret > 0)
 		fgetc(fp);
