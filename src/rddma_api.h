@@ -212,6 +212,13 @@ extern void *rddma_set_async_handle(void *, void *);
 extern void *rddma_wait_async_handle(void *, char **, void **);
 extern int rddma_post_async_handle(struct rddma_dev *);
 
+static inline void *rddma_invoke_closure(void **e)
+{
+	if (e)
+		return ((void *(*)(void *))e[0])(e);
+	return e;
+}
+
 extern int rddma_get_eventfd(int);
 extern void asyio_prep_pread(struct iocb *iocb, int fd, void *buf, int nr_segs,
 			     int64_t offset, int afd);
