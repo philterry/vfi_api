@@ -1,35 +1,75 @@
 Introduction
 ============
 
-The interface to the RDDMA driver is inherently asynchronous.
+The RDDMA driver is inherently asynchronous.
 
 What does this mean?
 
-Whether you use write or aio any "commad" you pass to the driver is
-queued for action and the write/io_submit returns.
+Any command submitted to the driver, via its "upper" char device
+interface to applications or via its "lower" fabric remote procedure
+call reception interface, is scheduled for execution by the
+driver. The execution of such a command my be suspended or blocked, by
+for example making a remote procedure call to another instance of the
+driver. While this thread is blocked the driver will continue with the
+executon of other requests on other threads. The threads we are
+discussing here are kernel threads, worker queues, etc.
+
+The driver supports a multitude of upper interfaces, one for each open
+file descriptor on its char device interface.
+
+The responses to commands written on any file descritor are returned
+only to that file descriptor. So if an application opens a file
+descriptor per thread there is no confusion of request/response
+pairings between the threads.
+
+A thread/process can open the file descriptor in one of two modes,
+blocking or non-blocking. 
+
+* In the normal blocking mode a write of a command will not return back
+to the application until the driver has fully executed the command and
+queued the response back to the read queue of the file
+descriptor. Thus a thread can execute multiple writes before reading
+back responses and be assured that the responses are in the same order
+to the requests.
+
+* In non-blocking mode (O_NONBLOCK option on the open) the write will
+issue the command to the driver and return immediately. Subsequently
+the driver will queue the response back to the descriptor when it
+completes. Now, if the thread executes multiple writes before reading
+its responses it now has no assurance of the ordering of the responses
+because of the underlying asynchronous nature of the core driver.
+
+This asynchronous non-blocking interface can also be achieved by using
+the AIO interface.  Whether you use non-blocking write or aio any
+"commad" you pass to the driver is queued for action and the
+write/io_submit returns.
 
 Sometime later you can obain the result of your "command" by reading
 the same file descriptor you did the write of the command on or by
 obtaining the result with io_getevents.
 
-If you do a blocking read on the file descriptor without any other
-intervening command writes then the result returned will be the result
-of the command you wrote.
+If you do a blocking poll/read on the file descriptor without any
+other intervening command writes then the result returned will be the
+result of the command you wrote. This is the simplest way to ensure
+ordering of responses when using an asynchronous, non-blocking
+interface to the driver.
 
 If you issue many command writes and then either block or poll for the
-read then you need to use the request/reply mechanism to tie the
-result to the request as, in an inherently asynchronous driver, the
-commands can complete out of order.
+read then you need to use some means to tie a reply to the request as,
+in an inherently asynchronous driver, the commands can complete out of
+order.
 
-The request/reply value is simply an opaque handle returned by the
-driver to its caller and the caller is free to make any use,
-interpretation of it it wishes. (Especially as the RDDMA interface is
-string based so it can be a 32-bit pointer value, 64-bit value, a list
-of values, etc.)
+The driver supports a request/reply option on all of its
+command/responses which is simply an opaque handle supplied by the
+caller when writing the commands, request(xxx), and is returned by the
+driver to the caller in its responses, reply(xxx). The caller is free
+to make any use, interpretation of xxx it wishes. (Especially as the
+RDDMA interface is string based so it can be a 32-bit pointer value,
+64-bit value, a list of values, etc.)
 
 Now, before we can make a decision as to how we "handle" or "hide"
-this nature of the RDDMA driver interface we have to decide what
-"style" of application is going to be using it.
+this nature of the RDDMA driver interface in an API we have to decide
+what "style" of application is going to be using it.
 
 Most people instinctively think there are only two alternatives,
 
@@ -183,8 +223,8 @@ There are three basic pieces to this general structure.
 - A mechanism to sleep/wait on once the invocation has been issued,
 
 - A mechanism to catch the responses, decode them back to the invoking
- events, and resume/wake the original execution path using the API
- convention.
+events, and resume/wake the original execution path, or, start a new one
+to continue the execution, using the API convention.
 
 The first two are fairly easy to treat within an "API", the third is
 more problematic in that it impinges on the application style or

@@ -1,1 +1,1 @@
-EXTRA_DIST = api.txt ob.txt
+EXTRA_DIST = api.txt ob.txt ril.txt
