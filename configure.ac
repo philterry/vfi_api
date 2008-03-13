@@ -14,6 +14,7 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
+GTK_DOC_CHECK([1.0])
 
 # Checks for libraries.
 

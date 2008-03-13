@@ -1,0 +1,130 @@
+RDDMA Interface Language (RIL)
+==============================
+
+The interface to the RDDAM driver is by reading and writing strings to /dev/rddma.
+
+These strings follow a URI like language syntax which can be formally defined in BNF etc.
+
+== Extending or Overlaying RIL to form the API
+
+The API extends this language with an API language with the same basic structure.
+
+    <cmd>://<params>
+
+might be a target for an internal API command or a driver command or
+may be designed to process the result of a driver command.
+
+The application structure can be considered as a loop which gets a
+command string from somewhere and executes them on the driver and
+processes the responses.
+
+Instead of simply passing it to the driver, rddma_invoke_cmd(dev,str),
+we can instead pass it to rddma_find_pre_cmd(dev,&str). 
+
+* If the result is false we continue to pass the command str to the the
+driver as before, rddma_invoke_cmd(dev,str). 
+
+* If the result is true we can bypass the invocation of the driver, it
+was an internal command which has been executed for us.
+
+We can register internal commands by name
+   void *rddma_register_pre_cmd(char *,void *(*)(void *, char **))
+
+I'm showing that the internal command being registered actually
+returns a void * instead of int or bool. We can still treat the result
+as a boolean as testing a void * for NULL is one of the few allowed
+operations in the C language. We shall see the importance of this
+below when we discuss closures.
+
+Such internal commands can act a "pre-commands" that is they don't
+simply function instead of invoking the driver, but instead do
+something preparatory. By simply returning a false result they can
+cause the driver command to still be invoked.
+
+By passing the command by reference to rddma_internal_cmd we also give
+such "pre-commands" the ability to modify or substitue the original
+command before it is passed to the driver.
+
+Finally, the results from driver commands can be "post" processed
+	 void *rddma_find_post_cmd(dev,&result);
+
+again we can register such post processing commands by name
+      void *rddma_register_post_cmd(char *, void *(*)(void *, char **))
+
+
+== Closures
+
+In our commands above we have been using void * instead of a boolean
+or int. This void * pointer is in fact a closure. In fact a
+polymorphic closure. This is a "Good Thing."
+
+Given a pc one can invoke it thus:
+
+	if (pc)
+	   npc = (void *(*)(void *))pc(pc);
+
+Note: That a pc returns a new pc. The significance of this may be only
+as a boolean or may be intended to form a chain of closure
+invocations, illustrated below without the decorations of the casting.
+
+   while (pc)
+	 pc = pc(pc);
+
+Also to be really useful pc's should take some outside parameters like
+normal functions occasionally.
+
+       npc = (void *(*)(void *, char *))pc(pc,str);
+
+Of course the main reason for having pc's is not such trickery but to
+be able to pass them between threads and events.
+
+pc = rddma_find_pre_cmd(dev,str);
+if (pc) {
+   ah = rddma_alloc_async_handle(pc);
+   rddma_invoke_cmd(dev,"%s?request(%p)",str,ah);
+}
+
+
+rddma_get_async_handle(ah,&response,&pc);
+npc = pc(pc,response);
+if (npc)
+      npc(npc);
+
+== Asynchronous Event Handling
+
+If the rddma driver is given a command which contains the
+?request(xxx) option it will return the response with a ?reply(xxx)
+option. That is 'xxx' is an opaque handle which the driver will return
+in its repsonses to requests.
+
+The API uses this to form an event_handle to allow it to operate the
+rddma device asynchronously (ie with non-blocking read/write
+operations together with poll or with AIO syscalls).
+
+The address of an async_handle structure is used as the request option
+value and a dequeuer of the reads from the device then uses the reply
+to "release" the async_handle.
+
+The async_handle is an opaque object of the API but is simply
+understood as a synchornizing semaphore together with a closure
+parameter plus a pointer to hold the response dequeued from the driver
+until such time as the invoking thread checks or blocks for a reply.
+
+rddma_alloc_async_handle (void **, void *)
+rddma_set_async_handle (void *, void *)
+rddma_free_async_handle (void *)
+
+rddma_wait_async_handle (void *, char **, void **)
+rddma_put_async_handle(dev *)
+
+Alloc creates an empty unblocked event handle. Set async handle lodges
+a closure to be returned in the get async handle along with the driver
+response. A closuer can aslo be lodged with the allocation
+function. Free decrements the use count and free the ojbect when no
+longer in use. Put is the main dequeuer thread's interface to dequeue
+the driver, decode the reply, lodge the response in the handle and
+then release the semaphore. Get is a threads way of blocking for a
+response on the semaphore.
+
+== Putting it all together
+

@@ -1,0 +1,497 @@
+<!-- ##### SECTION Title ##### -->
+rddma_api
+
+<!-- ##### SECTION Short_Description ##### -->
+
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### STRUCT rddma_dev ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION rddma_open ##### -->
+<para>
+
+</para>
+
+@dev: 
+@devname: 
+@timeout: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_close ##### -->
+<para>
+
+</para>
+
+@dev: 
+
+
+<!-- ##### FUNCTION rddma_fileno ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### STRUCT rddma_source ##### -->
+<para>
+
+</para>
+
+@f: 
+@d: 
+@h: 
+
+<!-- ##### FUNCTION rddma_setup_file ##### -->
+<para>
+
+</para>
+
+@dev: 
+@src: 
+@fp: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_cmd ##### -->
+<para>
+
+</para>
+
+@src: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### STRUCT rddma_async_handle ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION rddma_alloc_async_handle ##### -->
+<para>
+
+</para>
+
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_put_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_free_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_set_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_wait_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@r: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_post_async_handle ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### STRUCT rddma_cmd_elem ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION rddma_find_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@list: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_post_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_register_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@f: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_register_post_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@f: 
+@Returns: 
+
+
+<!-- ##### STRUCT rddma_npc ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION rddma_register_npc ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_register_func ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_register_map ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_register_event ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_npc ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_func ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_map ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_find_event ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_option ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_str_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@val: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_long_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@value: 
+@base: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_dec_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_hex_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_poll_read ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_do_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@format: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_do_cmd_ap ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@format: 
+@Param4: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_do_cmd_str ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@cmd: 
+@size: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_invoke_cmd ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_invoke_cmd_ap ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Param3: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_invoke_cmd_str ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION rddma_get_result ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Returns: 
+
+
+<!-- ##### TYPEDEF aio_context_t ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### MACRO PADDED ##### -->
+<para>
+
+</para>
+
+@x: 
+@y: 
+
+
+<!-- ##### MACRO IOCB_FLAG_RESFD ##### -->
+<para>
+
+</para>
+
+
+
+<!-- ##### STRUCT iocb ##### -->
+<para>
+
+</para>
+
+@aio_data: 
+@aio_lio_opcode: 
+@aio_reqprio: 
+@aio_fildes: 
+@aio_buf: 
+@aio_nbytes: 
+@aio_offset: 
+@aio_reserved2: 
+@aio_flags: 
+@aio_resfd: 
+
+<!-- ##### FUNCTION syscall ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Varargs: 
+@Returns: 
+
+

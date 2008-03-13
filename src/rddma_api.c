@@ -1,7 +1,36 @@
-#include "rddma_api.h"
+#include <rddma_api.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <semaphore.h>
+
+struct rddma_dev {
+	int fd;
+	FILE *file;
+	aio_context_t ctx;
+	int to;
+	struct rddma_npc *funcs;
+	struct rddma_npc *maps;
+	struct rddma_npc *events;
+	struct rddma_cmd_elem *pre_commands;
+	struct rddma_cmd_elem *post_commands;
+};
+
+struct rddma_cmd_elem {
+	struct rddma_cmd_elem *next;
+	void **(*f) (struct rddma_dev *, struct rddma_async_handle *, char *);
+	int size;
+	char *cmd;		/* this is the name of the command is self->b */
+	char b[];		/* Holds the name of the card, pointed
+				 * to by cmd above. */
+};
+
+struct rddma_npc {
+	struct rddma_npc *next;
+	char *name;		/* name of closure self->b */
+	int size;		/* size of name */
+	void *e;		/* closure */
+	char b[];		/* buffer for name */
+};
 
 /*
  * Generalize input of command strings from multiple sources, command
@@ -121,7 +150,7 @@ void *rddma_register_event(struct rddma_dev *dev, char *name, void *e)
  * an async handle and a parameter string and return a void * allowing
  * the construction of closures.
  */
-void *rddma_find_cmd(struct rddma_dev *dev, void *ah,
+void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
 		     struct rddma_cmd_elem *commands, char *buf)
 {
 	struct rddma_cmd_elem *cmd;
@@ -139,12 +168,14 @@ void *rddma_find_cmd(struct rddma_dev *dev, void *ah,
 }
 
 /* Dev stores two lists of commands, a pre and post list. */
-void *rddma_find_pre_cmd(struct rddma_dev *dev, void *ah, char *buf)
+void *rddma_find_pre_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+			 char *buf)
 {
 	return rddma_find_cmd(dev, ah, dev->pre_commands, buf);
 }
 
-void *rddma_find_post_cmd(struct rddma_dev *dev, void *ah, char *buf)
+void *rddma_find_post_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+			  char *buf)
 {
 	return rddma_find_cmd(dev, ah, dev->post_commands, buf);
 }
@@ -153,7 +184,8 @@ void *rddma_find_post_cmd(struct rddma_dev *dev, void *ah, char *buf)
  * Register commands to the pre and post lists...
  */
 int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
-			   void **(*f) (struct rddma_dev *, void *, char *))
+			   void **(*f) (struct rddma_dev *,
+					struct rddma_async_handle *, char *))
 {
 	struct rddma_cmd_elem *c;
 	int len = strlen(name);
@@ -167,7 +199,8 @@ int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
 }
 
 int rddma_register_post_cmd(struct rddma_dev *dev, char *name,
-			    void **(*f) (struct rddma_dev *, void *, char *))
+			    void **(*f) (struct rddma_dev *,
+					 struct rddma_async_handle *, char *))
 {
 	struct rddma_cmd_elem *c;
 	int len = strlen(name);
@@ -220,7 +253,7 @@ struct rddma_async_handle {
 };
 
 /* As a convenience the async handle can be passed the closure on its creation. */
-void *rddma_alloc_async_handle(void *e)
+struct rddma_async_handle *rddma_alloc_async_handle(void *e)
 {
 	struct rddma_async_handle *handle = calloc(1, sizeof(*handle));
 
@@ -236,7 +269,8 @@ void *rddma_alloc_async_handle(void *e)
 
 /* Alternatively the closure can be set in the async handle at any
  * time convenient to the application. */
-void *rddma_set_async_handle(void *h, void *e)
+struct rddma_async_handle *rddma_set_async_handle(struct rddma_async_handle *h,
+						  void *e)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
@@ -250,7 +284,8 @@ void *rddma_set_async_handle(void *h, void *e)
  * result retrieved by the dispatcher loop and the closure lodged with
  * the handle. The return value is the handle if it is and remains
  * valid, NULL pointer otherwise. */
-void *rddma_wait_async_handle(void *h, char **result, void **e)
+struct rddma_async_handle *rddma_wait_async_handle(struct rddma_async_handle *h,
+						   char **result, void **e)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
@@ -280,7 +315,7 @@ void *rddma_wait_async_handle(void *h, char **result, void **e)
 
 /* Get and Put operations are used to increment and decrement the ref
  * count of the handle. */
-void *rddma_get_async_handle(void *h)
+struct rddma_async_handle *rddma_get_async_handle(struct rddma_async_handle *h)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
@@ -293,7 +328,7 @@ void *rddma_get_async_handle(void *h)
 	return 0;
 }
 
-void *rddma_put_async_handle(void *h)
+struct rddma_async_handle *rddma_put_async_handle(struct rddma_async_handle *h)
 {
 	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
 	if (handle->c == handle) {
@@ -315,7 +350,7 @@ void *rddma_put_async_handle(void *h)
 
 /* Free is the counter operation to the allocation. As this is a
  * refcounted object it is equivalent to a put. */
-void *rddma_free_async_handle(void *h)
+struct rddma_async_handle *rddma_free_async_handle(struct rddma_async_handle *h)
 {
 	return rddma_put_async_handle(h);
 }
@@ -365,13 +400,14 @@ void *rddma_do_post_cmd(void *e)
 	struct {
 		void *f;
 		struct rddma_dev *dev;
-		void *ah;
+		struct rddma_async_handle *ah;
 		char *buf;
 	} *me = e;
 	return rddma_find_post_cmd(me->dev, me->ah, me->buf);
 }
 
-void *rddma_make_post_cmd(struct rddma_dev *dev, void *ah, char *buf)
+void *rddma_make_post_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+			  char *buf)
 {
 	void **e = calloc(4, sizeof(void *));
 	if (e == NULL)
@@ -416,6 +452,11 @@ void rddma_close(struct rddma_dev *dev)
 {
 	close(dev->fd);
 	free(dev);
+}
+
+int rddma_fileno(struct rddma_dev *dev)
+{
+	return dev->fd;
 }
 
 /*

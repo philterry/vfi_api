@@ -19,6 +19,560 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdarg.h>
+
+/** 
+ * rddma_dev:
+ *
+ * This is an opaque type a pointer to which is used as the handle
+ * which anchors the API around a particular rddma device driver
+ * interface. As well as opening and holding the file descriptor for
+ * /dev/rddma it also contains the heads of the various lists of data
+ * structures used to implement the API. A handle is instantiated with
+ * the constructor function rddma_open() and freed with the destructor
+ * function rddma_close().
+ */
+struct rddma_dev;
+/**
+ * rddma_open:
+ * @dev: a handle to be instantiated.
+ * @devname: a string name for the char device, %NULL defaults to
+ * /dev/rddma.
+ * @timeout: the timeout on underlying blocking polls of the rddma
+ * device, 0 defaults to -1 no timeout.
+ *
+ * This function allocates and initializes an rddma_dev and returns
+ * the pointer to it in the output parameter @dev.
+ *
+ * Returns: 0 on success, negative on errors.
+ */
+extern int rddma_open(struct rddma_dev **dev, char *devname, int timeout);
+/**
+ * rddma_close:
+ * @dev: handle of device to be closed and freed.
+ *
+ * This function closes down the API and frees all unused structures.
+ */
+extern void rddma_close(struct rddma_dev *dev);
+/**
+ * rddma_fileno:
+ * @dev: the API device handle
+ *
+ * This function returns the file descriptor of the RDDMA char device
+ * underlying the API. This may be required for various OS specific
+ * calls.
+ *
+ * Returns: the file descriptor
+ */
+extern int rddma_fileno(struct rddma_dev *dev);
+
+/**
+ * rddma_source:
+ * @f: function which is passed a pointer to @h[] and an input/output parameter @cmd
+ * @d: the API root object
+ * @h: an array of void * pointers forming the opaque input parameters to @f
+ *
+ * A source constructor, such as rddma_setup_file(), allocates an
+ * #rddma_source with sufficent size to hold the necessary parameters
+ * in @h[]. What these parameters are, how many, their types, etc., are
+ * all a private matter between the constructor and the executor of
+ * the source retrieval function @f which is set by the
+ * constructor. Technically, rddma_source is a closure.
+ *
+ * Normally @f is not called directly but is invoked by the wrapper
+ * function rddma_get_cmd().
+ */
+struct rddma_source {
+	int (*f) (void **h, char **cmd);
+	struct rddma_dev *d;
+	void *h[];
+};
+
+/**
+ * rddma_setup_file:
+ * @dev: api root object
+ * @src: the rddma_source handle to be initialized
+ * @fp: the file stream pointer to be used for the input stream.
+ *
+ * @rddma_setup_file is an example of an #rddma_source constructor. It
+ * sets up @src as a closure which reads the file stream @fp for RIL commands.
+ * 
+ * Returns: 0 if successful or EINVAL if @fp is NULL or ENOMEM if it
+ * can't allocate the memory for @src.
+ */
+extern int rddma_setup_file(struct rddma_dev *dev, struct rddma_source **src,
+			    FILE * fp);
+/**
+ * rddma_get_cmd:
+ * @src: a source closure prepared with a source
+ * generator, such as rddma_setup_file()
+ * @cmd: an input/output parameter returning a string which the caller
+ * is responsible for freeing. By passing a previously returned
+ * command string as an input parameter this function will
+ * automatically free it.
+ *
+ * rddma_get_cmd() is a function which executes the closure in @src in
+ * order to retrieve a RIL command in an allocated string returned in
+ * @cmd.  The caller must at some point free the returned @cmd
+ * string. As a convenience if rddma_get_cmd() is called with the
+ * previously returned value as input it will free the string as a
+ * convenience to the caller before retrieving a newly allocated
+ * string from the source. Initially or if this convenience is not
+ * required *@cmd should be set to %NULL before calling rddma_get_cmd().
+ *
+ * Returns: true if there is more data to be fetched, false if this is
+ * the last item of data from this source. Calling rddma_get_cmd() on a
+ * @src after it has returned false is undefined.
+ */
+extern int rddma_get_cmd(struct rddma_source *src, char **cmd);
+
+/**
+ * rddma_invoke_closure:
+ * @e: handle for the closure
+ *
+ * A closure is an anonymouse chuck of memory the first element of
+ * which is a function which takes a void * and returns a void *. The
+ * rest of the structure is assumed to be data parameters which the
+ * function may be interested in. The closure function is passed the
+ * closure itself as only it knows what the size of memory is and what
+ * the signature of the various types and structures contained therein
+ * may be. Typically the closure function casts the void ** to a
+ * structure pointer defining the contents of the closure. We use void
+ * ** as the signature of a closure to indicate that it is more than a
+ * single pointer.
+ *
+ * This function is simply a wrapper to avoid everyone trying to work
+ * out the casts...
+ *
+ * Returns: void * which may be #NULL or itself a closure or simply
+ * some value cast as a void *. Only the closure knows...
+ */
+static inline void *rddma_invoke_closure(void **e)
+{
+	if (e)
+		return ((void *(*)(void *))e[0]) (e);
+	return e;
+}
+
+/**
+ * rddma_async_handle:
+ *
+ * An opaque type used to provide synchronization points for
+ * applications implementing some form of asynchronous interface to
+ * the driver.
+ * 
+ * At its simplest its simply a void * providing a unique address for
+ * use as an identifier in request(xxx)/reply(xxx) interactions with
+ * the driver. For this purpose it can be allocated with
+ * rddma_alloc_async_handle() and freed with rddma_free_async_handle().
+ *
+ * More usefully, it provides a synchronization semaphore which can
+ * wait for the reply to the request with which it was issued. The
+ * applications waits using rddma_wait_async_handle() and some
+ * background thread/polling mechanism must call
+ * rddma_post_async_handle() periodically to retrieve results from the
+ * RDDMA driver and resume their waiting callers.
+ *
+ * If used with threads there may be issues with allocating, using and
+ * freeing such a structure if shared. Therefore this structure is
+ * also reference counted. Usage counts are incremented with
+ * rddma_get_async_handle() and decremented with
+ * rddma_put_async_handle(). A put which decrements the count to zero
+ * will free the structuree. In fact rddma_free_async_handle() simply
+ * descrements the usage count and only actually frees the structure
+ * if the count reaches zero.
+ *
+ * Finally, as a convenience to implementers the async handle can also
+ * pass a closure. This can be initialized in the
+ * rddma_alloc_async_handle() constructor or modified/instantiated
+ * with rddma_set_async_handle(). The closure is returned along with
+ * the driver result in rddma_wait_async_handle call.
+ */
+struct rddma_async_handle;
+/**
+ * rddma_alloc_async_handle:
+ * @e: A closure handle or NULL
+ *
+ * Allocates and returns an #rddma_async_handle optionally
+ * instantiated with a closure.
+ *
+ * Returns: NULL on failure or problem.
+ */
+extern struct rddma_async_handle *rddma_alloc_async_handle(void *e);
+/**
+ * rddma_get_async_handle:
+ * @h: handle to #rddma_async_handle
+ *
+ * Increments the usage count of @h.
+ *
+ * Returns: @h passed in on success #NULL otherwise.
+ */
+extern struct rddma_async_handle *rddma_get_async_handle(struct
+							 rddma_async_handle *h);
+/**
+ * rddma_put_async_handle:
+ * @h: handle to #rddma_async_handle
+ *
+ * Decrements the usage count of @h and deallocates the structure if
+ * count reaches zero.
+ *
+ * Returns: @h passed in or #NULL if deallocated or some other problem.
+ */
+extern struct rddma_async_handle *rddma_put_async_handle(struct
+							 rddma_async_handle *h);
+/**
+ * rddma_free_async_handle:
+ * @h: handle to #rddma_async_handle
+ *
+ * Decrements usage count of @h and frees it if zero.
+ *
+ * Returns: @h passed in or #NULL if deallocated.
+ */
+extern struct rddma_async_handle *rddma_free_async_handle(struct
+							  rddma_async_handle *h);
+/**
+ * rddma_set_async_handle:
+ * @h: handle to #rddma_async_handle
+ * @e: handle to closure
+ *
+ * Inserts the @e closure into the @h handle.
+ *
+ * Returns: @h passed in
+ */
+extern struct rddma_async_handle *rddma_set_async_handle(struct
+							 rddma_async_handle * h,
+							 void *e);
+/**
+ * rddma_wait_async_handle:
+ * @h: handle of #rddma_async_handle to wait on
+ * @r: result returned by driver
+ * @e: closure set in handle.
+ *
+ * This function will sleep on the synchronizing event if the response
+ * from the driver has not yet been received. When woken or if already
+ * present, the reply from the driver is returned in @r and the
+ * closure present in the handle is returned in @e
+ *
+ * Returns: @h passed in.
+ */
+extern struct rddma_async_handle *rddma_wait_async_handle(struct
+							  rddma_async_handle *h,
+							  char **r, void **e);
+/**
+ * rddma_post_async_handle:
+ * @dev: the device to retrieve responses from
+ *
+ * This command should be repeatedly called in a background thread or
+ * a polling loop to retrieve responses from the RDDMA driver and
+ * return them to their requesting execution paths. A single response
+ * is retrieved and returned per call. Replies retrieved which do not
+ * have a reply field mapping to an #rddma_async_handle will be
+ * discarded.
+ *
+ * Returns: 0 on success, negative if a response was discarded
+ */
+extern int rddma_post_async_handle(struct rddma_dev *dev);
+
+/**
+ * rddma_cmd_elem
+ *
+ * This opaque type is used to mechanise lists of commands. A command
+ * is a function which takes a #rddma_dev handle, an
+ * #rddma_async_handle and a cmd string and returns a closure. The
+ * command string is of the format
+ * &lt;cmd_name&gt;://&lt;paramter_string&gt;. Essentially, an #rddma_cmd_elem contains a
+ * size of the ^lt;cmd_name&gt; string, the ^lt;cmd_name&gt; and a function
+ * pointer together with the necessary next pointers and semaphores to
+ * allow lists of such elements to be managed. The heads of the list
+ * are stored in the @dev.  
+ */
+struct rddma_cmd_elem;
+/**
+ * rddma_find_cmd:
+ * @dev: the api handle containing the list heads
+ * @ah: an #rddma_async_handle
+ * @list: a pointer to the list head
+ * @cmd: the command string to be executed
+ *
+ * The command name extracted from the @cmd paramter is looked up in
+ * the list headed by @list. If found the command function is executed
+ * being passed the @dev, @ah and @cmd parameters.
+ *
+ * Returns: the closure returned by the execution of the command if
+ * found otherwise #NULL.
+ */
+extern void *rddma_find_cmd(struct rddma_dev *dev,
+			    struct rddma_async_handle *ah,
+			    struct rddma_cmd_elem *list, char *cmd);
+/**
+ * rddma_find_pre_cmd
+ * @dev: an api #rddma_device handle
+ * @ah: an #rddma_async_handle
+ * @cmd: the command string to be executed if found.
+ *
+ * This command searches for @cmd in the pre_command list of @dev and
+ * is basically a wrapper for rddma_find_cmd() with @list being the
+ * pre_command element of @dev.
+ * 
+ * Returns: the closure from the executed command or #NULL if not found.
+ */
+extern void *rddma_find_pre_cmd(struct rddma_dev *dev,
+				struct rddma_async_handle *ah, char *cmd);
+/**
+ * rddma_find_post_cmd
+ * @dev: an api #rddma_device handle
+ * @ah: an #rddma_async_handle
+ * @cmd: the command string to be executed if found.
+ *
+ * This command searches for @cmd in the post_command list of @dev and
+ * is basically a wrapper for rddma_find_cmd() with @list being the
+ * post_command element of @dev.
+ *
+ * Returns: the closure from the executed command or #NULL if the
+ * command is not found in the list.
+ */
+extern void *rddma_find_post_cmd(struct rddma_dev *dev,
+				 struct rddma_async_handle *ah, char *cmd);
+
+/**
+ * rddma_register_pre_cmd
+ * @dev: an #rddma_dev handle
+ * @name: the name string of the command
+ * @f: the command function
+ * 
+ * This command registers the function @f under @name in the @dev's
+ * pre_command list.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
+				  void **(*f) (struct rddma_dev * dev,
+					       struct rddma_async_handle * ah,
+					       char *cmd));
+/**
+ * rddma_register_post_cmd
+ * @dev: an #rddma_dev handle
+ * @name: the name string of the command
+ * @f: the command function
+ * 
+ * This command registers the function @f under @name in the @dev's
+ * post_command list.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int rddma_register_post_cmd(struct rddma_dev *dev, char *name,
+				   void **(*f) (struct rddma_dev * dev,
+						struct rddma_async_handle * ah,
+						char *cmd));
+/**
+ * rddma_npc
+ *
+ * This structure is an opaque type representing a named polymorphic
+ * closure, or npc, for short. An closure is an area of memory whose
+ * first element is a function taking a void * and returning a void
+ * *. The returned void * may be a closure, or simply #NULL, or simply
+ * a value coerced to void *. Only the function knows the size and
+ * signature, i.e., type structure, of the memory areas representd by
+ * the closure which we type as void ** to indicate a pointer to an
+ * array of void *, i.e., some unknown size chunk of memory.
+ *
+ * The closure is named by being associated in a list structure with a
+ * name. This is the purpose of #rddma_npc.
+ */
+struct rddma_npc;
+/**
+ * rddma_register_npc
+ * @list: the list header of npc's
+ * @name: the name of the closure to be added.
+ * @e: the closure to be added.
+ *
+ * Returns: the closure added or #NULL if there is a problem.
+ */
+extern void *rddma_register_npc(struct rddma_npc **list, char *name, void *e);
+/**
+ * rddma_register_func
+ * @dev: the #rddma_dev handle with the list head of functions
+ * @name: the name of the command function to be added
+ * @e: the closure representing the command function
+ *
+ * This function adds a closure representing an API command to the
+ * @dev's list of functions.
+ *
+ * Returns: the @e closure added or #NULL if there is a problem
+ */
+extern void *rddma_register_func(struct rddma_dev *dev, char *name, void *e);
+/**
+ * rddma_register_map
+ * @dev: the #rddma_dev handle with the list head of maps
+ * @name: the name of the map
+ * @e: the closure representing the map
+ *
+ * This function adds a closure representing an API map to the @dev's
+ * list of maps
+ *
+ * Returns: the @e closure added or #NULL if there is a problem
+ */
+extern void *rddma_register_map(struct rddma_dev *dev, char *name, void *e);
+/**
+ * rddma_register_event
+ * @dev: the #rddma_dev handle with the list head of maps
+ * @name: the name of the map
+ * @e: the closure representing the event
+ *
+ * This function adds a closure representing an API event to the @dev's
+ * list of events
+ *
+ * Returns: the @e closure added or #NULL if there is a problem
+ */
+extern void *rddma_register_event(struct rddma_dev *dev, char *name, void *e);
+/**
+ * rddma_find_npc
+ * @list: the list to be searched
+ * @name: the name of the closure being searched for.
+ *
+ * This function searches a list of named closures.
+ *
+ * Returns: the @e closure found or #NULL if there is a problem
+ */
+extern void *rddma_find_npc(struct rddma_npc *list, char *name);
+/**
+ * rddma_find_func
+ * @dev: the #rddma_dev handle whose function list is to be searched
+ * @name: the name of the function closure being searched for.
+ *
+ * This function searches the function list of named closures whose head is held in @dev
+ *
+ * Returns: the @e closure found or #NULL if there is a problem
+ */
+extern void *rddma_find_func(struct rddma_dev *dev, char *name);
+/**
+ * rddma_find_map
+ * @dev: the #rddma_dev handle whose map list is to be searched
+ * @name: the name of the map closure being searched for.
+ *
+ * This function searches the map list of named closures whose head is held in @dev
+ *
+ * Returns: the @e closure found or #NULL if there is a problem
+ */
+extern void *rddma_find_map(struct rddma_dev *dev, char *name);
+/**
+ * rddma_find_event
+ * @dev: the #rddma_dev handle whose event list is to be searched
+ * @name: the name of the event closure being searched for.
+ *
+ * This function searches the event list of named closures whose head is held in @dev
+ *
+ * Returns: the @e closure found or #NULL if there is a problem
+ */
+extern void *rddma_find_event(struct rddma_dev *dev, char *name);
+/**
+ * rddma_get_option
+ * @str: the string to be searched for the option
+ * @name: the name of the option to be search for.
+ *
+ * The @str is searched for the string @name. 
+ *
+ * Returns: %TRUE if @name is found in @str %FALSE otherwise
+ */
+extern int rddma_get_option(char *str, char *name);
+/**
+ * rddma_get_str_arg
+ * @str: to be searched for named option
+ * @name: option to be sought
+ * @val: string value of option if found
+ *
+ * If @name is not found a negative error value is returned. If @name is
+ * found but doesn't have a value, ie @name(value) format, then zero is
+ * returned. Otherwise %TRUE is returned.
+ *
+ * Returns: < 0 if @name not found, 0 if found but no value, > 0 if
+ * @val is returned.
+ */
+extern int rddma_get_str_arg(char *str, char *name, char **val);
+/**
+ * rddma_get_long_arg:
+ * @str: string to be searched
+ * @name: of option being sought
+ * @value: output parameter for value of option to be stored in.
+ * @base: interpretation of value string to long conversion.
+ *
+ * @base selects conversion for strtol, 8, 10 or 16. 0 assumes octal
+ * for leading 0, hex if leading 0x, decimal otherwise.
+ *
+ * Returns: value of options value string or -1 if not found or has no
+ * value string format.
+ */
+extern int rddma_get_long_arg(char *str, char *name, long *value, int base);
+/**
+ * rddma_get_dec_arg
+ * @str: string to be searched for option
+ * @name: option being sought
+ *
+ * This is a decimal, ie @base=10, wrapper for rddma_get_long_arg().
+ */
+extern long rddma_get_dec_arg(char *str, char *name);
+/**
+ * rddma_get_hex_arg
+ * @str: string to be searched for option
+ * @name: option being sought
+ *
+ * This is a hexadecimal, ie @base=16, wrapper for rddma_get_long_arg().
+ */
+extern long rddma_get_hex_arg(char *str, char *name);
+/**
+ * rddma_poll_read
+ * @dev: the #rddma_dev handle to be polled for results.
+ *
+ * This function polls the underlying file descriptor for a
+ * non-blocking read. The poll blocks for the timeout configued for
+ * the @dev.
+ */
+extern int rddma_poll_read(struct rddma_dev *dev);
+/**
+ * rddma_do_cmd
+ * @dev: the device to which the command is sent and from which the
+ * reply is obtained.
+ * @reply: the output char * parameter to receive the reply string.
+ * @format: the format string to "print" the command to the @dev.
+ * @varargs: parameters for the format printf.
+ *
+ * This command dispatches the command to the @dev and then blocks for
+ * the response. These do_cmds do not use an #rddma_async_handle but
+ * rely on the application not issuing multiple writes, i.e.,
+ * interleaved rddma_invoke_cmd() like functions are not used.
+ */
+extern int rddma_do_cmd(struct rddma_dev *dev, char **reply, char *format, ...)
+    __attribute__ ((format(printf, 3, 4)));
+/**
+ * rddma_do_cmd_ap
+ * @dev: the device to be used to send command and receive reply.
+ * @reply: the reply output parameter
+ * @format: the format string used to print the command to the @dev.
+ * @va_list: va_list
+ *
+ * This command is a va_list interface to rddma_do_cmd()
+ */
+extern int rddma_do_cmd_ap(struct rddma_dev *dev, char **reply, char *format, va_list);
+/**
+ * rddma_do_cmd_str
+ * @dev: the device to be used
+ * @reply: the output parameter for the reply string
+ * @cmd: the command string to be sent
+ * @size: optional size of the @cmd string. 0 if unknown.
+ *
+ * This is a string interface version of rddma_do_cmd()
+ */
+extern int rddma_do_cmd_str(struct rddma_dev *dev, char **reply, char *cmd, int size);
+/**
+ * rddma_invoke_cmd
+ */
+extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...)
+    __attribute__ ((format(printf, 2, 3)));
+extern int rddma_invoke_cmd_ap(struct rddma_dev *, char *, va_list);
+extern int rddma_invoke_cmd_str(struct rddma_dev *, char *, int);
+
+extern int rddma_get_result(struct rddma_dev *, char **);
+
+
  /*
   * This were good at the time of 2.6.21-rc5.mm4 ...
   */
@@ -133,104 +687,6 @@ static inline int eventfd(int count)
 {
 
 	return syscall(__NR_eventfd, count);
-}
-
-struct rddma_dev {
-	int fd;
-	FILE *file;
-	aio_context_t ctx;
-	int to;
-	struct rddma_npc *funcs;
-	struct rddma_npc *maps;
-	struct rddma_npc *events;
-	struct rddma_cmd_elem *pre_commands;
-	struct rddma_cmd_elem *post_commands;
-};
-
-struct rddma_source {
-	int (*f) (void **src, char **cmd);
-	struct rddma_dev *d;
-	void *h[];
-};
-
-extern int rddma_setup_file(struct rddma_dev *dev, struct rddma_source **src,
-			    FILE * fp);
-extern int rddma_get_cmd(struct rddma_source *src, char **cmd);
-extern void *rddma_find_cmd(struct rddma_dev *dev, void *ah,
-			    struct rddma_cmd_elem *list, char *cmd);
-extern void *rddma_find_pre_cmd(struct rddma_dev *dev, void *ah, char *cmd);
-extern void *rddma_find_post_cmd(struct rddma_dev *dev, void *ah, char *cmd);
-
-extern int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
-				  void **(*f) (struct rddma_dev * dev, void *ah,
-					       char *cmd));
-extern int rddma_register_post_cmd(struct rddma_dev *dev, char *name,
-				   void **(*f) (struct rddma_dev * dev,
-						void *ah, char *cmd));
-
-struct rddma_npc {
-	struct rddma_npc *next;
-	char *name;		/* name of closure self->b */
-	int size;		/* size of name */
-	void *e;		/* closure */
-	char b[];		/* buffer for name */
-};
-
-extern void *rddma_register_npc(struct rddma_npc **, char *, void *);
-extern void *rddma_register_func(struct rddma_dev *, char *, void *);
-extern void *rddma_register_map(struct rddma_dev *, char *, void *);
-extern void *rddma_register_event(struct rddma_dev *, char *, void *);
-extern void *rddma_find_npc(struct rddma_npc *, char *);
-extern void *rddma_find_func(struct rddma_dev *, char *);
-extern void *rddma_find_map(struct rddma_dev *, char *);
-extern void *rddma_find_event(struct rddma_dev *, char *);
-
-struct rddma_cmd_elem {
-	struct rddma_cmd_elem *next;
-	void **(*f) (struct rddma_dev *, void *, char *);
-	int size;
-	char *cmd;		/* this is the name of the command is self->b */
-	char b[];		/* Holds the name of the card, pointed
-				 * to by cmd above. */
-};
-
-extern int rddma_open(struct rddma_dev **, char *, int);
-extern void rddma_close(struct rddma_dev *);
-
-extern int rddma_get_option(char *str, char *name);
-extern int rddma_get_str_arg(char *str, char *name, char **val);
-extern int rddma_get_long_arg(char *str, char *name, long *value, int base);
-extern long rddma_get_dec_arg(char *str, char *name);
-extern long rddma_get_hex_arg(char *str, char *name);
-
-extern int rddma_poll_read(struct rddma_dev *);
-
-extern int rddma_do_cmd(struct rddma_dev *, char **, char *, ...)
-    __attribute__ ((format(printf, 3, 4)));
-extern int rddma_do_cmd_ap(struct rddma_dev *, char **, char *, va_list);
-extern int rddma_do_cmd_str(struct rddma_dev *, char **, char *, int);
-
-extern int rddma_invoke_cmd(struct rddma_dev *, char *, ...)
-    __attribute__ ((format(printf, 2, 3)));
-extern int rddma_invoke_cmd_ap(struct rddma_dev *, char *, va_list);
-extern int rddma_invoke_cmd_str(struct rddma_dev *, char *, int);
-
-extern int rddma_get_result(struct rddma_dev *, char **);
-
-extern void *rddma_alloc_async_handle(void *);
-extern void *rddma_get_async_handle(void *);
-extern void *rddma_put_async_handle(void *);
-extern void *rddma_free_async_handle(void *);
-extern void *rddma_set_async_handle(void *, void *);
-
-extern void *rddma_wait_async_handle(void *, char **, void **);
-extern int rddma_post_async_handle(struct rddma_dev *);
-
-static inline void *rddma_invoke_closure(void **e)
-{
-	if (e)
-		return ((void *(*)(void *))e[0]) (e);
-	return e;
 }
 
 extern int rddma_get_eventfd(int);
