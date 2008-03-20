@@ -162,7 +162,7 @@ void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
 
 		for (cmd = commands; cmd && cmd->f; cmd = cmd->next)
 			if (size == cmd->size && !strncmp(buf, cmd->cmd, size))
-				return cmd->f(dev, ah, term + 3);
+				return cmd->f(dev, ah, buf);			       
 	}
 	return 0;
 }
@@ -365,7 +365,7 @@ int rddma_post_async_handle(struct rddma_dev *dev)
 	struct rddma_async_handle *handle = NULL;
 
 	ret = rddma_get_result(dev, &result);
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	handle =
