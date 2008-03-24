@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([rddma_api], [0.1], [Phil Terry <pterry@micromemory.com>])
+AC_INIT([vfi_api], [0.1], [Phil Terry <pterry@vmetro.com>])
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([src/rddma_api.c])
+AC_CONFIG_SRCDIR([src/vfi_api.c])
 AC_CONFIG_HEADER([config.h])
 AC_PROG_LIBTOOL
 # Checks for programs.
@@ -28,14 +28,14 @@ AC_C_INLINE
 
 # Checks for library functions.
 
-RDDMA_API_INCLUDEDIR="-I${includedir}"
-AC_SUBST(RDDMA_API_INCLUDEDIR)
-RDDMA_API_CFLAGS=""
-AC_SUBST(RDDMA_API_CFLAGS)
-RDDMA_API_LIBDIR="-L${libdir}"
-AC_SUBST(RDDMA_API_LIBDIR)
-RDDMA_API_LIBS="-l${PACKAGE}"
-AC_SUBST(RDDMA_API_LIBS)
+VFI_API_INCLUDEDIR="-I${includedir}"
+AC_SUBST(VFI_API_INCLUDEDIR)
+VFI_API_CFLAGS=""
+AC_SUBST(VFI_API_CFLAGS)
+VFI_API_LIBDIR="-L${libdir}"
+AC_SUBST(VFI_API_LIBDIR)
+VFI_API_LIBS="-l${PACKAGE}"
+AC_SUBST(VFI_API_LIBS)
 AC_CONFIG_FILES([Makefile
-                 src/Makefile doc/Makefile m4/Makefile mmcrddma_api-config librddma_api.pc])
+                 src/Makefile doc/Makefile m4/Makefile vfi_api-config libvfi_api.pc])
 AC_OUTPUT

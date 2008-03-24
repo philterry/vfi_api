@@ -1,31 +1,31 @@
-#include <rddma_api.h>
+#include <vfi_api.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <semaphore.h>
 
-struct rddma_dev {
+struct vfi_dev {
 	int fd;
 	FILE *file;
 	aio_context_t ctx;
 	int to;
-	struct rddma_npc *funcs;
-	struct rddma_npc *maps;
-	struct rddma_npc *events;
-	struct rddma_cmd_elem *pre_commands;
-	struct rddma_cmd_elem *post_commands;
+	struct vfi_npc *funcs;
+	struct vfi_npc *maps;
+	struct vfi_npc *events;
+	struct vfi_cmd_elem *pre_commands;
+	struct vfi_cmd_elem *post_commands;
 };
 
-struct rddma_cmd_elem {
-	struct rddma_cmd_elem *next;
-	void **(*f) (struct rddma_dev *, struct rddma_async_handle *, char *);
+struct vfi_cmd_elem {
+	struct vfi_cmd_elem *next;
+	void **(*f) (struct vfi_dev *, struct vfi_async_handle *, char *);
 	int size;
 	char *cmd;		/* this is the name of the command is self->b */
 	char b[];		/* Holds the name of the card, pointed
 				 * to by cmd above. */
 };
 
-struct rddma_npc {
-	struct rddma_npc *next;
+struct vfi_npc {
+	struct vfi_npc *next;
 	char *name;		/* name of closure self->b */
 	int size;		/* size of name */
 	void *e;		/* closure */
@@ -46,10 +46,10 @@ static int get_file(void **s, char **command)
 	return ret > 0;
 }
 
-int rddma_setup_file(struct rddma_dev *dev, struct rddma_source **src,
+int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
 		     FILE * fp)
 {
-	struct rddma_source *h = malloc(sizeof(*h) + sizeof(void *));
+	struct vfi_source *h = malloc(sizeof(*h) + sizeof(void *));
 	*src = h;
 
 	if (fp == NULL)
@@ -65,7 +65,7 @@ int rddma_setup_file(struct rddma_dev *dev, struct rddma_source **src,
 	return 0;
 }
 
-int rddma_get_cmd(struct rddma_source *src, char **command)
+int vfi_get_cmd(struct vfi_source *src, char **command)
 {
 	if (*command)
 		free(*command);
@@ -78,9 +78,9 @@ int rddma_get_cmd(struct rddma_source *src, char **command)
  */
 
 /* Generic lookup name in list */
-void *rddma_find_npc(struct rddma_npc *elems, char *name)
+void *vfi_find_npc(struct vfi_npc *elems, char *name)
 {
-	struct rddma_npc *l;
+	struct vfi_npc *l;
 	int size = strlen(name);
 
 	for (l = elems; l; l = l->next) {
@@ -92,32 +92,32 @@ void *rddma_find_npc(struct rddma_npc *elems, char *name)
 }
 
 /* Store three lists in dev, funcs, maps and events */
-void *rddma_find_func(struct rddma_dev *dev, char *name)
+void *vfi_find_func(struct vfi_dev *dev, char *name)
 {
 	void *ret;
-	ret = rddma_find_npc(dev->funcs, name);
+	ret = vfi_find_npc(dev->funcs, name);
 	return ret;
 }
 
-void *rddma_find_map(struct rddma_dev *dev, char *name)
+void *vfi_find_map(struct vfi_dev *dev, char *name)
 {
 	void *ret;
-	ret = rddma_find_npc(dev->maps, name);
+	ret = vfi_find_npc(dev->maps, name);
 	return ret;
 }
 
-void *rddma_find_event(struct rddma_dev *dev, char *name)
+void *vfi_find_event(struct vfi_dev *dev, char *name)
 {
 	void *ret;
-	ret = rddma_find_npc(dev->events, name);
+	ret = vfi_find_npc(dev->events, name);
 	return ret;
 }
 
 /* Generic register an NPC in a list with a name. */
-void *rddma_register_npc(struct rddma_npc **elems, char *name, void *e)
+void *vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 {
-	struct rddma_npc *l;
-	if (rddma_find_npc(*elems, name))
+	struct vfi_npc *l;
+	if (vfi_find_npc(*elems, name))
 		return 0;
 	l = calloc(1, sizeof(*l) + strlen(name) + 1);
 	l->size = strlen(name);
@@ -130,19 +130,19 @@ void *rddma_register_npc(struct rddma_npc **elems, char *name, void *e)
 }
 
 /* Again, three lists in dev, funcs, maps, events. */
-void *rddma_register_map(struct rddma_dev *dev, char *name, void *e)
+void *vfi_register_map(struct vfi_dev *dev, char *name, void *e)
 {
-	return rddma_register_npc(&dev->maps, name, e);
+	return vfi_register_npc(&dev->maps, name, e);
 }
 
-void *rddma_register_func(struct rddma_dev *dev, char *name, void *e)
+void *vfi_register_func(struct vfi_dev *dev, char *name, void *e)
 {
-	return rddma_register_npc(&dev->funcs, name, e);
+	return vfi_register_npc(&dev->funcs, name, e);
 }
 
-void *rddma_register_event(struct rddma_dev *dev, char *name, void *e)
+void *vfi_register_event(struct vfi_dev *dev, char *name, void *e)
 {
-	return rddma_register_npc(&dev->events, name, e);
+	return vfi_register_npc(&dev->events, name, e);
 }
 
 /*
@@ -150,10 +150,10 @@ void *rddma_register_event(struct rddma_dev *dev, char *name, void *e)
  * an async handle and a parameter string and return a void * allowing
  * the construction of closures.
  */
-void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
-		     struct rddma_cmd_elem *commands, char *buf)
+void *vfi_find_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
+		     struct vfi_cmd_elem *commands, char *buf)
 {
-	struct rddma_cmd_elem *cmd;
+	struct vfi_cmd_elem *cmd;
 	char *term;
 	term = strstr(buf, "://");
 
@@ -168,26 +168,26 @@ void *rddma_find_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
 }
 
 /* Dev stores two lists of commands, a pre and post list. */
-void *rddma_find_pre_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+void *vfi_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 			 char *buf)
 {
-	return rddma_find_cmd(dev, ah, dev->pre_commands, buf);
+	return vfi_find_cmd(dev, ah, dev->pre_commands, buf);
 }
 
-void *rddma_find_post_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+void *vfi_find_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 			  char *buf)
 {
-	return rddma_find_cmd(dev, ah, dev->post_commands, buf);
+	return vfi_find_cmd(dev, ah, dev->post_commands, buf);
 }
 
 /* 
  * Register commands to the pre and post lists...
  */
-int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
-			   void **(*f) (struct rddma_dev *,
-					struct rddma_async_handle *, char *))
+int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
+			   void **(*f) (struct vfi_dev *,
+					struct vfi_async_handle *, char *))
 {
-	struct rddma_cmd_elem *c;
+	struct vfi_cmd_elem *c;
 	int len = strlen(name);
 	c = calloc(1, sizeof(*c) + len + 1);
 	strcpy(c->b, name);
@@ -198,11 +198,11 @@ int rddma_register_pre_cmd(struct rddma_dev *dev, char *name,
 	dev->pre_commands = c;
 }
 
-int rddma_register_post_cmd(struct rddma_dev *dev, char *name,
-			    void **(*f) (struct rddma_dev *,
-					 struct rddma_async_handle *, char *))
+int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
+			    void **(*f) (struct vfi_dev *,
+					 struct vfi_async_handle *, char *))
 {
-	struct rddma_cmd_elem *c;
+	struct vfi_cmd_elem *c;
 	int len = strlen(name);
 	c = calloc(1, sizeof(*c) + len + 1);
 	strcpy(c->b, name);
@@ -243,19 +243,19 @@ int rddma_register_post_cmd(struct rddma_dev *dev, char *name,
  * structure along with the function to unpack them and continue, and
  * returns the void * pointer to this closure structure.
  */
-struct rddma_async_handle {
+struct vfi_async_handle {
 	char *result;
 	void *e;
-	struct rddma_async_handle *c;
+	struct vfi_async_handle *c;
 	sem_t wait_sem;
 	sem_t access_sem;
 	int count;
 };
 
 /* As a convenience the async handle can be passed the closure on its creation. */
-struct rddma_async_handle *rddma_alloc_async_handle(void *e)
+struct vfi_async_handle *vfi_alloc_async_handle(void *e)
 {
-	struct rddma_async_handle *handle = calloc(1, sizeof(*handle));
+	struct vfi_async_handle *handle = calloc(1, sizeof(*handle));
 
 	if (handle) {
 		handle->c = (void *)handle;
@@ -269,10 +269,10 @@ struct rddma_async_handle *rddma_alloc_async_handle(void *e)
 
 /* Alternatively the closure can be set in the async handle at any
  * time convenient to the application. */
-struct rddma_async_handle *rddma_set_async_handle(struct rddma_async_handle *h,
+struct vfi_async_handle *vfi_set_async_handle(struct vfi_async_handle *h,
 						  void *e)
 {
-	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	struct vfi_async_handle *handle = (struct vfi_async_handle *)h;
 	if (handle->c == handle) {
 		handle->e = e;
 		return h;
@@ -284,10 +284,10 @@ struct rddma_async_handle *rddma_set_async_handle(struct rddma_async_handle *h,
  * result retrieved by the dispatcher loop and the closure lodged with
  * the handle. The return value is the handle if it is and remains
  * valid, NULL pointer otherwise. */
-struct rddma_async_handle *rddma_wait_async_handle(struct rddma_async_handle *h,
+struct vfi_async_handle *vfi_wait_async_handle(struct vfi_async_handle *h,
 						   char **result, void **e)
 {
-	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	struct vfi_async_handle *handle = (struct vfi_async_handle *)h;
 	if (handle->c == handle) {
 		if (sem_wait(&handle->access_sem) < 0)
 			return 0;
@@ -315,9 +315,9 @@ struct rddma_async_handle *rddma_wait_async_handle(struct rddma_async_handle *h,
 
 /* Get and Put operations are used to increment and decrement the ref
  * count of the handle. */
-struct rddma_async_handle *rddma_get_async_handle(struct rddma_async_handle *h)
+struct vfi_async_handle *vfi_get_async_handle(struct vfi_async_handle *h)
 {
-	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	struct vfi_async_handle *handle = (struct vfi_async_handle *)h;
 	if (handle->c == handle) {
 		if (sem_wait(&handle->access_sem) < 0)
 			return 0;
@@ -328,9 +328,9 @@ struct rddma_async_handle *rddma_get_async_handle(struct rddma_async_handle *h)
 	return 0;
 }
 
-struct rddma_async_handle *rddma_put_async_handle(struct rddma_async_handle *h)
+struct vfi_async_handle *vfi_put_async_handle(struct vfi_async_handle *h)
 {
-	struct rddma_async_handle *handle = (struct rddma_async_handle *)h;
+	struct vfi_async_handle *handle = (struct vfi_async_handle *)h;
 	if (handle->c == handle) {
 		if (sem_wait(&handle->access_sem) < 0)
 			return 0;
@@ -350,26 +350,26 @@ struct rddma_async_handle *rddma_put_async_handle(struct rddma_async_handle *h)
 
 /* Free is the counter operation to the allocation. As this is a
  * refcounted object it is equivalent to a put. */
-struct rddma_async_handle *rddma_free_async_handle(struct rddma_async_handle *h)
+struct vfi_async_handle *vfi_free_async_handle(struct vfi_async_handle *h)
 {
-	return rddma_put_async_handle(h);
+	return vfi_put_async_handle(h);
 }
 
 /* This is the main function of any dispatch loop. Retrieve a result
  * from the driver, decode the reply handle, stash the result in the
  * handle and then post its semaphore to release the waiting thread. */
-int rddma_post_async_handle(struct rddma_dev *dev)
+int vfi_post_async_handle(struct vfi_dev *dev)
 {
 	int ret;
 	char *result = NULL;
-	struct rddma_async_handle *handle = NULL;
+	struct vfi_async_handle *handle = NULL;
 
-	ret = rddma_get_result(dev, &result);
+	ret = vfi_get_result(dev, &result);
 	if (ret <= 0)
 		return ret;
 
 	handle =
-	    (struct rddma_async_handle *)rddma_get_hex_arg(result, "reply");
+	    (struct vfi_async_handle *)vfi_get_hex_arg(result, "reply");
 
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
@@ -395,25 +395,25 @@ int rddma_post_async_handle(struct rddma_dev *dev)
  * post command to be executed once the driver has returned the result
  * of the driver's smb_mmap.
  */
-void *rddma_do_post_cmd(void *e)
+void *vfi_do_post_cmd(void *e)
 {
 	struct {
 		void *f;
-		struct rddma_dev *dev;
-		struct rddma_async_handle *ah;
+		struct vfi_dev *dev;
+		struct vfi_async_handle *ah;
 		char *buf;
 	} *me = e;
-	return rddma_find_post_cmd(me->dev, me->ah, me->buf);
+	return vfi_find_post_cmd(me->dev, me->ah, me->buf);
 }
 
-void *rddma_make_post_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
+void *vfi_make_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 			  char *buf)
 {
 	void **e = calloc(4, sizeof(void *));
 	if (e == NULL)
 		return e;
 
-	e[0] = rddma_do_post_cmd;
+	e[0] = vfi_do_post_cmd;
 	e[1] = (void *)dev;
 	e[2] = ah;
 	e[3] = (void *)buf;
@@ -421,13 +421,13 @@ void *rddma_make_post_cmd(struct rddma_dev *dev, struct rddma_async_handle *ah,
 }
 
 /*
- * Open and close the rddma driver device and provide a convenient
+ * Open and close the vfi driver device and provide a convenient
  * central object to hang the rest of the API objects on, command
  * lists, etc.
  */
-int rddma_open(struct rddma_dev **device, char *dev_name, int timeout)
+int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 {
-	struct rddma_dev *dev = malloc(sizeof(struct rddma_dev));
+	struct vfi_dev *dev = malloc(sizeof(struct vfi_dev));
 
 	*device = dev;
 	if (dev == NULL)
@@ -435,7 +435,7 @@ int rddma_open(struct rddma_dev **device, char *dev_name, int timeout)
 
 	dev->to = timeout;
 	dev->fd =
-	    open(dev_name ? dev_name : "/dev/rddma", (O_NONBLOCK | O_RDWR));
+	    open(dev_name ? dev_name : "/dev/vfi", (O_NONBLOCK | O_RDWR));
 
 	if (dev->fd < 0) {
 		perror("failed");
@@ -448,13 +448,13 @@ int rddma_open(struct rddma_dev **device, char *dev_name, int timeout)
 	return 0;
 }
 
-void rddma_close(struct rddma_dev *dev)
+void vfi_close(struct vfi_dev *dev)
 {
 	close(dev->fd);
 	free(dev);
 }
 
-int rddma_fileno(struct rddma_dev *dev)
+int vfi_fileno(struct vfi_dev *dev)
 {
 	return dev->fd;
 }
@@ -465,7 +465,7 @@ int rddma_fileno(struct rddma_dev *dev)
  */
 
 /* Boolean named options, str present is true absent is false. */
-int rddma_get_option(char *str, char *name)
+int vfi_get_option(char *str, char *name)
 {
 	if (str && name)
 		return (strstr(str, name) != NULL);
@@ -475,7 +475,7 @@ int rddma_get_option(char *str, char *name)
 /* Get a str valued options opt_name(opt_value). Return -1 is the
  * option is not present, 0 if present but with no value, 1 if a value
  * is present. */
-int rddma_get_str_arg(char *str, char *name, char **val)
+int vfi_get_str_arg(char *str, char *name, char **val)
 {
 	char *var = NULL;
 
@@ -496,11 +496,11 @@ int rddma_get_str_arg(char *str, char *name, char **val)
 }
 
 /* Retrieve a numeric valued option in various bases. */
-int rddma_get_long_arg(char *str, char *name, long *value, int base)
+int vfi_get_long_arg(char *str, char *name, long *value, int base)
 {
 	char *val = NULL;
 	int ret;
-	ret = rddma_get_str_arg(str, name, &val);
+	ret = vfi_get_str_arg(str, name, &val);
 	if (ret > 0) {
 		*value = strtoul(val, 0, base);
 		free(val);
@@ -512,45 +512,45 @@ int rddma_get_long_arg(char *str, char *name, long *value, int base)
 /* 
  * Hex interface to get numeric valued option. Assumed hex digits with
  * no leading 0x */
-long rddma_get_hex_arg(char *str, char *name)
+long vfi_get_hex_arg(char *str, char *name)
 {
 	long val;
-	if (rddma_get_long_arg(str, name, &val, 16))
+	if (vfi_get_long_arg(str, name, &val, 16))
 		return val;
 	return -1;
 }
 
 /* Decimal interface to get numeric valued option. Assumes decimal
  * digits. */
-long rddma_get_dec_arg(char *str, char *name)
+long vfi_get_dec_arg(char *str, char *name)
 {
 	long val;
-	if (rddma_get_long_arg(str, name, &val, 10))
+	if (vfi_get_long_arg(str, name, &val, 10))
 		return val;
 	return -1;
 }
 
 /* Generic interface to get numeric valued option. Leading 0 is octal
  * base, 0x is hex, numeric is decimal. */
-long rddma_get_numeric_arg(char *str, char *name)
+long vfi_get_numeric_arg(char *str, char *name)
 {
 	long val;
-	if (rddma_get_long_arg(str, name, &val, 0))
+	if (vfi_get_long_arg(str, name, &val, 0))
 		return val;
 	return -1;
 }
 
-/* Poll rddma driver device for read. */
-int rddma_poll_read(struct rddma_dev *dev)
+/* Poll vfi driver device for read. */
+int vfi_poll_read(struct vfi_dev *dev)
 {
 	struct pollfd fd = { dev->fd, POLLIN, 0 };
 	return poll(&fd, 1, dev->to);
 }
 
-/* Read rddma device. Either block or if non-block and no result is
+/* Read vfi device. Either block or if non-block and no result is
  * obtained, block with poll and re-read for result. Caller is
  * responsible for freeing returned result string. */
-int rddma_get_result(struct rddma_dev *dev, char **result)
+int vfi_get_result(struct vfi_dev *dev, char **result)
 {
 	int ret;
 
@@ -559,7 +559,7 @@ int rddma_get_result(struct rddma_dev *dev, char **result)
 	while (ret <= 0 && ferror(dev->file)) {
 		clearerr(dev->file);
 
-		ret = rddma_poll_read(dev);
+		ret = vfi_poll_read(dev);
 		if (ret <= 0)
 			return ret;
 
@@ -570,13 +570,13 @@ int rddma_get_result(struct rddma_dev *dev, char **result)
 
 /*
  * The invoke cmd functions are really only of use on a non-blocking
- * rddma driver interface where the application wishes to continue
+ * vfi driver interface where the application wishes to continue
  * execution in parallel with the drivers execution of the written
  * command. The result will be picked up subsequently.
  *
  * The three functions are simply a varadic and string interface.
  */
-int rddma_invoke_cmd_ap(struct rddma_dev *dev, char *f, va_list ap)
+int vfi_invoke_cmd_ap(struct vfi_dev *dev, char *f, va_list ap)
 {
 	int ret;
 	ret = vfprintf(dev->file, f, ap);
@@ -584,19 +584,19 @@ int rddma_invoke_cmd_ap(struct rddma_dev *dev, char *f, va_list ap)
 	return ret;
 }
 
-int rddma_invoke_cmd(struct rddma_dev *dev, char *f, ...)
+int vfi_invoke_cmd(struct vfi_dev *dev, char *f, ...)
 {
 	va_list ap;
 	int ret;
 
 	va_start(ap, f);
-	ret = rddma_invoke_cmd_ap(dev, f, ap);
+	ret = vfi_invoke_cmd_ap(dev, f, ap);
 	va_end(ap);
 
 	return ret;
 }
 
-int rddma_invoke_cmd_str(struct rddma_dev *dev, char *cmd, int size)
+int vfi_invoke_cmd_str(struct vfi_dev *dev, char *cmd, int size)
 {
 	int ret;
 	if (size)
@@ -622,35 +622,35 @@ int rddma_invoke_cmd_str(struct rddma_dev *dev, char *cmd, int size)
  * Again the three commands are simply the varadic and string
  * interfaces to the underlying commands.
  */
-int rddma_do_cmd_ap(struct rddma_dev *dev, char **result, char *f, va_list ap)
+int vfi_do_cmd_ap(struct vfi_dev *dev, char **result, char *f, va_list ap)
 {
 	int ret;
-	ret = rddma_invoke_cmd_ap(dev, f, ap);
+	ret = vfi_invoke_cmd_ap(dev, f, ap);
 	if (ret < 0)
 		return ret;
 
-	ret = rddma_get_result(dev, result);
+	ret = vfi_get_result(dev, result);
 	return ret;
 }
 
-int rddma_do_cmd(struct rddma_dev *dev, char **result, char *f, ...)
+int vfi_do_cmd(struct vfi_dev *dev, char **result, char *f, ...)
 {
 	va_list ap;
 	int ret;
 
 	va_start(ap, f);
-	ret = rddma_do_cmd_ap(dev, result, f, ap);
+	ret = vfi_do_cmd_ap(dev, result, f, ap);
 	va_end(ap);
 	return ret;
 }
 
-int rddma_do_cmd_str(struct rddma_dev *dev, char **result, char *cmd, int size)
+int vfi_do_cmd_str(struct vfi_dev *dev, char **result, char *cmd, int size)
 {
 	int ret;
-	ret = rddma_invoke_cmd_str(dev, cmd, size);
+	ret = vfi_invoke_cmd_str(dev, cmd, size);
 	if (ret < 0)
 		return ret;
-	ret = rddma_get_result(dev, result);
+	ret = vfi_get_result(dev, result);
 	return ret;
 }
 
@@ -660,7 +660,7 @@ int rddma_do_cmd_str(struct rddma_dev *dev, char **result, char *cmd, int size)
  * interface. They need wrapping up in an api abstraction before final
  * use.
  */
-int rddma_get_eventfd(int count)
+int vfi_get_eventfd(int count)
 {
 	int afd;
 
@@ -725,7 +725,7 @@ void asyio_prep_pwrite(struct iocb *iocb, int fd, void const *buf, int nr_segs,
 	iocb->aio_reqprio = 0;
 	iocb->aio_buf = (u_int64_t) (unsigned long)buf;
 	iocb->aio_nbytes = nr_segs;
-	/* Address of string for rddma reply */
+	/* Address of string for vfi reply */
 	iocb->aio_offset = (u_int64_t) (unsigned long)malloc(256);
 	iocb->aio_flags = IOCB_FLAG_RESFD;
 	iocb->aio_resfd = afd;

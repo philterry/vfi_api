@@ -1,5 +1,5 @@
-lib_LTLIBRARIES = librddma_api.la
+lib_LTLIBRARIES = libvfi_api.la
 
-librddma_api_la_SOURCES = rddma_api.c rddma_api.h
+libvfi_api_la_SOURCES = vfi_api.c vfi_api.h
 
-include_HEADERS = rddma_api.h
+include_HEADERS = vfi_api.h

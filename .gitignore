@@ -6,7 +6,7 @@ configure
 depcomp
 install-sh
 missing
-mmcrddma_api-config
+vfi_api-config
 src/Makefile.in
 Makefile
 config.h
@@ -21,9 +21,9 @@ config.sub
 libtool
 ltmain.sh
 .libs
-src/librddma_api.la
-src/rddma_api.lo
-src/rddma_api.o
+src/libvfi_api.la
+src/vfi_api.lo
+src/vfi_api.o
 *.pc
 TAGS
 *.stamp

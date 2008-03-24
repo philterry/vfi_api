@@ -3,10 +3,10 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: librddma_api
-Description: API for Rincon Distributed DMA (RDDMA) Driver.
+Name: libvfi_api
+Description: API for Vmetro FusionIPC Distributed DMA (FDDMA) Driver.
 Version: @VERSION@
 Requires:
-Libs: -L${libdir} -lrddma_api
+Libs: -L${libdir} -lvfi_api
 Cflags: -I${includedir} 
 

@@ -12,8 +12,8 @@ Usage: $0 [OPTION]
 
 Known values for OPTION are:
 
-  --prefix=DIR		change mmc_rddma_api prefix [default $prefix]
-  --exec-prefix=DIR     change mmc_rddma_api exec prefix [default $exec_prefix]
+  --prefix=DIR		change vfi_api prefix [default $prefix]
+  --exec-prefix=DIR     change vfi_api exec prefix [default $exec_prefix]
   --libs		print library linking information
   --cflags		print pre-processor and compiler flags
   --help		display this help and exit
@@ -71,12 +71,12 @@ while test $# -gt 0; do
 
     --cflags)
         cflags=:
-       	echo @RDDMA_API_INCLUDEDIR@ @RDDMA_API_CFLAGS@
+       	echo @VFI_API_INCLUDEDIR@ @VFI_API_CFLAGS@
        	;;
 
     --libs)
 	libs=:
-       	echo @RDDMA_API_LIBDIR@ @RDDMA_API_LIBS@ -lrt
+       	echo @VFI_API_LIBDIR@ @VFI_API_LIBS@ -lrt
        	;;
 
     *)
