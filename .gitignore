@@ -28,3 +28,12 @@ src/vfi_api.o
 TAGS
 *.stamp
 *.bak
+*.tar.gz
+doc/html
+doc/tmpl
+doc/xml
+doc/vfi_api.*
+doc/vfi_api-decl*
+doc/vfi_api-overrides.txt
+doc/vfi_api-undocumented.txt
+doc/vfi_api-unused.txt
