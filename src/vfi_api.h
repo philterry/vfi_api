@@ -32,6 +32,7 @@
  * function vfi_close().
  */
 struct vfi_dev;
+
 /**
  * vfi_open:
  * @dev: a handle to be instantiated.
@@ -46,6 +47,7 @@ struct vfi_dev;
  * Returns: 0 on success, negative on errors.
  */
 extern int vfi_open(struct vfi_dev **dev, char *devname, int timeout);
+
 /**
  * vfi_close:
  * @dev: handle of device to be closed and freed.
@@ -53,6 +55,7 @@ extern int vfi_open(struct vfi_dev **dev, char *devname, int timeout);
  * This function closes down the API and frees all unused structures.
  */
 extern void vfi_close(struct vfi_dev *dev);
+
 /**
  * vfi_fileno:
  * @dev: the API device handle
@@ -101,6 +104,7 @@ struct vfi_source {
  */
 extern int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
 			    FILE * fp);
+
 /**
  * vfi_get_cmd:
  * @src: a source closure prepared with a source
@@ -124,34 +128,6 @@ extern int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
  * @src after it has returned false is undefined.
  */
 extern int vfi_get_cmd(struct vfi_source *src, char **cmd);
-
-/**
- * vfi_invoke_closure:
- * @e: handle for the closure
- *
- * A closure is an anonymouse chuck of memory the first element of
- * which is a function which takes a void * and returns a void *. The
- * rest of the structure is assumed to be data parameters which the
- * function may be interested in. The closure function is passed the
- * closure itself as only it knows what the size of memory is and what
- * the signature of the various types and structures contained therein
- * may be. Typically the closure function casts the void ** to a
- * structure pointer defining the contents of the closure. We use void
- * ** as the signature of a closure to indicate that it is more than a
- * single pointer.
- *
- * This function is simply a wrapper to avoid everyone trying to work
- * out the casts...
- *
- * Returns: void * which may be #NULL or itself a closure or simply
- * some value cast as a void *. Only the closure knows...
- */
-static inline void *vfi_invoke_closure(void **e)
-{
-	if (e)
-		return ((void *(*)(void *))e[0]) (e);
-	return e;
-}
 
 /**
  * vfi_async_handle:
@@ -188,6 +164,35 @@ static inline void *vfi_invoke_closure(void **e)
  * the driver result in vfi_wait_async_handle call.
  */
 struct vfi_async_handle;
+
+/**
+ * vfi_invoke_closure:
+ * @e: handle for the closure
+ *
+ * A closure is an anonymouse chuck of memory the first element of
+ * which is a function which takes a void * and returns a void *. The
+ * rest of the structure is assumed to be data parameters which the
+ * function may be interested in. The closure function is passed the
+ * closure itself as only it knows what the size of memory is and what
+ * the signature of the various types and structures contained therein
+ * may be. Typically the closure function casts the void ** to a
+ * structure pointer defining the contents of the closure. We use void
+ * ** as the signature of a closure to indicate that it is more than a
+ * single pointer.
+ *
+ * This function is simply a wrapper to avoid everyone trying to work
+ * out the casts...
+ *
+ * Returns: void * which may be #NULL or itself a closure or simply
+ * some value cast as a void *. Only the closure knows...
+ */
+static inline void *vfi_invoke_closure(void **e, struct vfi_dev *d, struct vfi_async_handle *ah, char *s)
+{
+	if (e)
+		return ((void *(*)(void *,struct vfi_dev *,struct vfi_async_handle *, char *))e[0]) (e,d,ah,s);
+	return e;
+}
+
 /**
  * vfi_alloc_async_handle:
  * @e: A closure handle or NULL
@@ -198,6 +203,7 @@ struct vfi_async_handle;
  * Returns: NULL on failure or problem.
  */
 extern struct vfi_async_handle *vfi_alloc_async_handle(void *e);
+
 /**
  * vfi_get_async_handle:
  * @h: handle to #vfi_async_handle
@@ -236,11 +242,11 @@ extern struct vfi_async_handle *vfi_free_async_handle(struct
  *
  * Inserts the @e closure into the @h handle.
  *
- * Returns: @h passed in
+ * Returns: the old closure originally in @h which may be NULL. NULL
+ * is also returned if the handle is invalid.
  */
-extern struct vfi_async_handle *vfi_set_async_handle(struct
-							 vfi_async_handle * h,
-							 void *e);
+extern void *vfi_set_async_handle(struct vfi_async_handle * h,
+				  void *e);
 /**
  * vfi_wait_async_handle:
  * @h: handle of #vfi_async_handle to wait on
@@ -280,7 +286,7 @@ extern int vfi_post_async_handle(struct vfi_dev *dev);
  * #vfi_async_handle and a cmd string and returns a closure. The
  * command string is of the format
  * &lt;cmd_name&gt;://&lt;paramter_string&gt;. Essentially, an #vfi_cmd_elem contains a
- * size of the ^lt;cmd_name&gt; string, the ^lt;cmd_name&gt; and a function
+ * size of the &lt;cmd_name&gt; string, the &lt;cmd_name&gt; and a function
  * pointer together with the necessary next pointers and semaphores to
  * allow lists of such elements to be managed. The heads of the list
  * are stored in the @dev.  
@@ -300,9 +306,9 @@ struct vfi_cmd_elem;
  * Returns: the closure returned by the execution of the command if
  * found otherwise #NULL.
  */
-extern void *vfi_find_cmd(struct vfi_dev *dev,
+extern int vfi_find_cmd(struct vfi_dev *dev,
 			    struct vfi_async_handle *ah,
-			    struct vfi_cmd_elem *list, char *cmd);
+			    struct vfi_cmd_elem *list, char **cmd);
 /**
  * vfi_find_pre_cmd
  * @dev: an api #vfi_device handle
@@ -315,8 +321,8 @@ extern void *vfi_find_cmd(struct vfi_dev *dev,
  * 
  * Returns: the closure from the executed command or #NULL if not found.
  */
-extern void *vfi_find_pre_cmd(struct vfi_dev *dev,
-				struct vfi_async_handle *ah, char *cmd);
+extern int vfi_find_pre_cmd(struct vfi_dev *dev,
+				struct vfi_async_handle *ah, char **cmd);
 /**
  * vfi_find_post_cmd
  * @dev: an api #vfi_device handle
@@ -330,9 +336,23 @@ extern void *vfi_find_pre_cmd(struct vfi_dev *dev,
  * Returns: the closure from the executed command or #NULL if the
  * command is not found in the list.
  */
-extern void *vfi_find_post_cmd(struct vfi_dev *dev,
-				 struct vfi_async_handle *ah, char *cmd);
+extern int vfi_find_post_cmd(struct vfi_dev *dev,
+				 struct vfi_async_handle *ah, char **cmd);
 
+/**
+ * vfi_register_cmd
+ * @list: an #vfi_cmd_elem handle
+ * @name: the name string of the command
+ * @f: the command function
+ * 
+ * This command registers the function @f under @name in the provided list.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int vfi_register_cmd(struct vfi_cmd_elem *list, char *name,
+				  int (*f) (struct vfi_dev * dev,
+					       struct vfi_async_handle * ah,
+					       char **cmd));
 /**
  * vfi_register_pre_cmd
  * @dev: an #vfi_dev handle
@@ -345,9 +365,9 @@ extern void *vfi_find_post_cmd(struct vfi_dev *dev,
  * Returns: 0 if successful otherwise a negative error code.
  */
 extern int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
-				  void **(*f) (struct vfi_dev * dev,
+				  int(*f) (struct vfi_dev * dev,
 					       struct vfi_async_handle * ah,
-					       char *cmd));
+					       char **cmd));
 /**
  * vfi_register_post_cmd
  * @dev: an #vfi_dev handle
@@ -360,9 +380,9 @@ extern int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
  * Returns: 0 if successful otherwise a negative error code.
  */
 extern int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
-				   void **(*f) (struct vfi_dev * dev,
+				   int (*f) (struct vfi_dev * dev,
 						struct vfi_async_handle * ah,
-						char *cmd));
+						char **cmd));
 /**
  * vfi_npc
  *
@@ -379,15 +399,27 @@ extern int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
  * name. This is the purpose of #vfi_npc.
  */
 struct vfi_npc;
+
 /**
  * vfi_register_npc
  * @list: the list header of npc's
  * @name: the name of the closure to be added.
  * @e: the closure to be added.
  *
- * Returns: the closure added or #NULL if there is a problem.
+ * Returns: 0 on success otherwise error.
  */
-extern void *vfi_register_npc(struct vfi_npc **list, char *name, void *e);
+extern int vfi_register_npc(struct vfi_npc **list, char *name, void *e);
+
+/**
+ * vfi_unregister_npc
+ * @list: the list header of npc's
+ * @name: the name of the closure to be added.
+ * @e: returns the closure of unregistered entry.
+ *
+ * Returns: 0 on success otherwise error.
+ */
+extern int vfi_unregister_npc(struct vfi_npc **list, char *name, void **e);
+
 /**
  * vfi_register_func
  * @dev: the #vfi_dev handle with the list head of functions
@@ -397,21 +429,76 @@ extern void *vfi_register_npc(struct vfi_npc **list, char *name, void *e);
  * This function adds a closure representing an API command to the
  * @dev's list of functions.
  *
- * Returns: the @e closure added or #NULL if there is a problem
+ * Returns: 0 on success otherwise error.
  */
-extern void *vfi_register_func(struct vfi_dev *dev, char *name, void *e);
+extern int vfi_register_func(struct vfi_dev *dev, char *name, void *e);
+
+/**
+ * vfi_unregister_func
+ * @dev: the #vfi_dev handle with the list head of functions
+ * @name: the name of the command function to be added
+ * @e: returns the closure of the deleted function
+ *
+ * This function deletes a closure representing an API command from the
+ * @dev's list of functions.
+ *
+ * Returns: 0 on success otherwise error.
+ */
+extern int vfi_unregister_func(struct vfi_dev *dev, char *name, void **e);
+
+/**
+ * vfi_map
+ * @f: the closure function use in smb_mmap and smb_create pre commands
+ * @name: a pointer to a heap allocated name string
+ * @mem: a void * to the virtual address of the mmap
+ * @extent: the size of the mmap in bytes.
+ * @name_buf: the name buffer pointed to by @name
+ */
+struct vfi_map {
+	void *f;
+	char *name;
+	void *mem;
+	long extent;
+	char name_buf[];
+};
+
+/**
+ * vfi_alloc_map
+ * @map: the returned structure
+ * @name: the name of the structure
+ *
+ * Allocates a #vfi_map structure and initializes its name.
+ *
+ * Returns: 0 on success error otherwise
+ */
+extern int vfi_alloc_map(struct vfi_map **map, char *name);
+
 /**
  * vfi_register_map
  * @dev: the #vfi_dev handle with the list head of maps
  * @name: the name of the map
- * @e: the closure representing the map
+ * @map: the closure representing the map
  *
  * This function adds a closure representing an API map to the @dev's
  * list of maps
  *
- * Returns: the @e closure added or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_register_map(struct vfi_dev *dev, char *name, void *e);
+extern int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *e);
+
+/**
+ * vfi_unregister_map
+ * @dev: the #vfi_dev handle with the list head of maps
+ * @name: the name of the map
+ * @map: returns the closure of the unregistered map
+ *
+ * This function removes a closure representing an API map from the @dev's
+ * list of maps
+ *
+ * Returns: 0 on success otherwise error
+ */
+extern int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **e);
+
 /**
  * vfi_register_event
  * @dev: the #vfi_dev handle with the list head of maps
@@ -421,49 +508,71 @@ extern void *vfi_register_map(struct vfi_dev *dev, char *name, void *e);
  * This function adds a closure representing an API event to the @dev's
  * list of events
  *
- * Returns: the @e closure added or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_register_event(struct vfi_dev *dev, char *name, void *e);
+extern int vfi_register_event(struct vfi_dev *dev, char *name, void *e);
+
+/**
+ * vfi_unregister_event
+ * @dev: the #vfi_dev handle with the list head of maps
+ * @name: the name of the map
+ * @e: the closure from the unregistered event
+ *
+ * This function removes a closure representing an API event from the @dev's
+ * list of events
+ *
+ * Returns: 0 on success otherwise error
+ */
+extern int vfi_unregister_event(struct vfi_dev *dev, char *name, void **e);
+
 /**
  * vfi_find_npc
  * @list: the list to be searched
  * @name: the name of the closure being searched for.
+ * @npc: the returned npc if found
  *
  * This function searches a list of named closures.
  *
- * Returns: the @e closure found or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_find_npc(struct vfi_npc *list, char *name);
+extern int vfi_find_npc(struct vfi_npc *list, char *name, struct vfi_npc **npc);
+
 /**
  * vfi_find_func
  * @dev: the #vfi_dev handle whose function list is to be searched
  * @name: the name of the function closure being searched for.
+ * @e: returns the closure if found
  *
  * This function searches the function list of named closures whose head is held in @dev
  *
- * Returns: the @e closure found or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_find_func(struct vfi_dev *dev, char *name);
+extern int vfi_find_func(struct vfi_dev *dev, char *name, void **e);
+
 /**
  * vfi_find_map
  * @dev: the #vfi_dev handle whose map list is to be searched
  * @name: the name of the map closure being searched for.
+ * @map: returns the map if found
  *
  * This function searches the map list of named closures whose head is held in @dev
  *
- * Returns: the @e closure found or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_find_map(struct vfi_dev *dev, char *name);
+extern int vfi_find_map(struct vfi_dev *dev, char *name, struct vfi_map **map);
+
 /**
  * vfi_find_event
  * @dev: the #vfi_dev handle whose event list is to be searched
  * @name: the name of the event closure being searched for.
+ * @e: returns the event if found
  *
  * This function searches the event list of named closures whose head is held in @dev
  *
- * Returns: the @e closure found or #NULL if there is a problem
+ * Returns: 0 on success otherwise error
  */
-extern void *vfi_find_event(struct vfi_dev *dev, char *name);
+extern int vfi_find_event(struct vfi_dev *dev, char *name, void **e);
+
 /**
  * vfi_get_option
  * @str: the string to be searched for the option
@@ -474,6 +583,7 @@ extern void *vfi_find_event(struct vfi_dev *dev, char *name);
  * Returns: %TRUE if @name is found in @str %FALSE otherwise
  */
 extern int vfi_get_option(char *str, char *name);
+
 /**
  * vfi_get_str_arg
  * @str: to be searched for named option
@@ -488,6 +598,7 @@ extern int vfi_get_option(char *str, char *name);
  * @val is returned.
  */
 extern int vfi_get_str_arg(char *str, char *name, char **val);
+
 /**
  * vfi_get_long_arg:
  * @str: string to be searched
@@ -502,6 +613,7 @@ extern int vfi_get_str_arg(char *str, char *name, char **val);
  * value string format.
  */
 extern int vfi_get_long_arg(char *str, char *name, long *value, int base);
+
 /**
  * vfi_get_dec_arg
  * @str: string to be searched for option
@@ -510,6 +622,38 @@ extern int vfi_get_long_arg(char *str, char *name, long *value, int base);
  * This is a decimal, ie @base=10, wrapper for vfi_get_long_arg().
  */
 extern long vfi_get_dec_arg(char *str, char *name);
+
+/**
+ * vfi_get_location
+ * @str: the string to be searched for a location substring
+ * @loc: a copy of the location in an allocated string buffer.
+ *
+ * Finds the first occurrence of "name.location" in string @str and
+ * returns a string @loc containting "location". Caller should
+ * deallocate @loc when finished with it.
+ *
+ * Returns: 0 on success otherwise error
+ */
+extern int vfi_get_location(char *str, char **loc);
+
+/**
+ * vfi_get_name_location
+ * @str: the string to be searched for a location substring
+ * @name: copy of the name in an allocated string buffer.
+ * @loc: a copy of the location in an allocated string buffer.
+ *
+ * Finds the first occurrence of "name.location" in string @str and
+ * returns a string @name containting "name" and a string @loc
+ * containting "location". Caller should deallocate @name and @loc
+ * when finished with them.
+ *
+ * Returns: 0 on success otherwise error
+ */
+extern int vfi_get_name_location(char *str, char **name, char **loc);
+
+extern int vfi_get_extent(char *, long *);
+extern int vfi_get_offset(char *, long long *);
+
 /**
  * vfi_get_hex_arg
  * @str: string to be searched for option

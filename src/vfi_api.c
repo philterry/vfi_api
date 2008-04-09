@@ -3,11 +3,64 @@
 #include <stdarg.h>
 #include <semaphore.h>
 
+int vfi_get_extent(char *str, long *extent)
+{
+	char *ext = strstr(str,":");
+	if (ext) {
+		if (sscanf(ext,":%x",extent) == 1) {
+			printf("%s:%s->%x\n",__FUNCTION__,str,*extent);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
+int vfi_get_offset(char *str, long long *offset)
+{
+	char *off = strstr(str,"#");
+	if (off) {
+		if (sscanf(off,"#%llx",offset) == 1) {
+			printf("%s:%s->%llx\n",__FUNCTION__,str,*offset);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
+int vfi_get_location(char *str, char **loc)
+{
+	int start;
+	start = strcspn(str,".");
+	if (start) {
+		start++;
+		if (sscanf(str+start,"%a[^?=/]",loc) == 1) {
+			printf("%s:loc(%s),start(%d),str(%s)\n",__FUNCTION__,*loc,start,str);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
+int vfi_get_name_location(char *str, char **name, char **loc)
+{
+	char *start;
+	start = strstr(str,"://");
+	if (start) {
+		start += 3;
+		if (sscanf(start,"%a[^.].%a[^?=/]",name,loc) == 2) {
+			printf("%s:loc(%s),start(%d),str(%s)\n",__FUNCTION__,*loc,start,str);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
 struct vfi_dev {
 	int fd;
 	FILE *file;
 	aio_context_t ctx;
 	int to;
+	int done;
 	struct vfi_npc *funcs;
 	struct vfi_npc *maps;
 	struct vfi_npc *events;
@@ -17,7 +70,7 @@ struct vfi_dev {
 
 struct vfi_cmd_elem {
 	struct vfi_cmd_elem *next;
-	void **(*f) (struct vfi_dev *, struct vfi_async_handle *, char *);
+	int (*f) (struct vfi_dev *, struct vfi_async_handle *, char **);
 	int size;
 	char *cmd;		/* this is the name of the command is self->b */
 	char b[];		/* Holds the name of the card, pointed
@@ -73,52 +126,43 @@ int vfi_get_cmd(struct vfi_source *src, char **command)
 	return (src->f(src->h, command) > 0);
 }
 
+int vfi_alloc_map(struct vfi_map **mapp, char *name)
+{
+	struct vfi_map *map = calloc(1,sizeof(*map)+strlen(name)+1);
+	if (map == NULL)
+		return -ENOMEM;
+
+	strcpy(map->name_buf, name);
+	map->name = map->name_buf;
+	*mapp = map;
+	return 0;
+}
+
 /*
  * Lists of named polymorphic closures (NPC)
  */
 
 /* Generic lookup name in list */
-void *vfi_find_npc(struct vfi_npc *elems, char *name)
+int vfi_find_npc(struct vfi_npc *elems, char *name, struct vfi_npc **npc)
 {
 	struct vfi_npc *l;
 	int size = strlen(name);
 
 	for (l = elems; l; l = l->next) {
 		if ((size == l->size) && !strcmp(l->name, name)) {
-			return l->e;
+			*npc = l;
+			return 0;
 		}
 	}
-	return NULL;
-}
-
-/* Store three lists in dev, funcs, maps and events */
-void *vfi_find_func(struct vfi_dev *dev, char *name)
-{
-	void *ret;
-	ret = vfi_find_npc(dev->funcs, name);
-	return ret;
-}
-
-void *vfi_find_map(struct vfi_dev *dev, char *name)
-{
-	void *ret;
-	ret = vfi_find_npc(dev->maps, name);
-	return ret;
-}
-
-void *vfi_find_event(struct vfi_dev *dev, char *name)
-{
-	void *ret;
-	ret = vfi_find_npc(dev->events, name);
-	return ret;
+	return -EINVAL;
 }
 
 /* Generic register an NPC in a list with a name. */
-void *vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
+int vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 {
 	struct vfi_npc *l;
-	if (vfi_find_npc(*elems, name))
-		return 0;
+	if (vfi_find_npc(*elems, name, &l))
+		return -EINVAL;
 	l = calloc(1, sizeof(*l) + strlen(name) + 1);
 	l->size = strlen(name);
 	strcpy(l->b, name);
@@ -126,23 +170,88 @@ void *vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 	l->e = e;
 	l->next = *elems;
 	*elems = l;
-	return e;
+	return 0;
+}
+
+int vfi_unregister_npc(struct vfi_npc **elems, char *name, void **e)
+{
+	struct vfi_npc *l,*p=NULL;
+	int size = strlen(name);
+
+	for (l = *elems; l; p = l, l = l->next) {
+		if ((size == l->size) && !strcmp(l->name, name)) {
+			if (p)
+				p->next = l->next;
+			else
+				*elems = l->next;
+			*e = l->e;
+			free(l);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
+/* Store three lists in dev, funcs, maps and events */
+int vfi_find_func(struct vfi_dev *dev, char *name, void **e)
+{
+	struct vfi_npc *npc;
+	if (vfi_find_npc(dev->funcs, name, &npc))
+	    return -EINVAL;
+
+	*e = npc->e;
+	return 0;
+}
+
+int vfi_find_map(struct vfi_dev *dev, char *name, struct vfi_map **map)
+{
+	struct vfi_npc *npc;
+	if (vfi_find_npc(dev->maps, name,&npc))
+		return -EINVAL;
+
+	*map = npc->e;
+	return 0;
+}
+
+int vfi_find_event(struct vfi_dev *dev, char *name, void **e)
+{
+	struct vfi_npc *npc;
+	if (vfi_find_npc(dev->events, name, &npc))
+		return -EINVAL;
+	
+	*e = npc->e;
+	return 0;
 }
 
 /* Again, three lists in dev, funcs, maps, events. */
-void *vfi_register_map(struct vfi_dev *dev, char *name, void *e)
+int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *e)
 {
 	return vfi_register_npc(&dev->maps, name, e);
 }
 
-void *vfi_register_func(struct vfi_dev *dev, char *name, void *e)
+int vfi_register_func(struct vfi_dev *dev, char *name, void *e)
 {
 	return vfi_register_npc(&dev->funcs, name, e);
 }
 
-void *vfi_register_event(struct vfi_dev *dev, char *name, void *e)
+int vfi_register_event(struct vfi_dev *dev, char *name, void *e)
 {
 	return vfi_register_npc(&dev->events, name, e);
+}
+
+int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **e)
+{
+	return vfi_unregister_npc(&dev->maps,name,(void **)e);
+}
+
+int vfi_unregister_func(struct vfi_dev *dev, char *name, void **e)
+{
+	return vfi_unregister_npc(&dev->funcs,name,e);
+}
+
+int vfi_unregister_event(struct vfi_dev *dev, char *name, void **e)
+{
+	return vfi_unregister_npc(&dev->events,name,e);
 }
 
 /*
@@ -150,32 +259,32 @@ void *vfi_register_event(struct vfi_dev *dev, char *name, void *e)
  * an async handle and a parameter string and return a void * allowing
  * the construction of closures.
  */
-void *vfi_find_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
-		     struct vfi_cmd_elem *commands, char *buf)
+int vfi_find_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
+		     struct vfi_cmd_elem *commands, char **buf)
 {
 	struct vfi_cmd_elem *cmd;
 	char *term;
-	term = strstr(buf, "://");
+	term = strstr(*buf, "://");
 
 	if (term) {
-		int size = term - buf;
+		int size = term - *buf;
 
 		for (cmd = commands; cmd && cmd->f; cmd = cmd->next)
-			if (size == cmd->size && !strncmp(buf, cmd->cmd, size))
+			if (size == cmd->size && !strncmp(*buf, cmd->cmd, size))
 				return cmd->f(dev, ah, buf);			       
 	}
 	return 0;
 }
 
 /* Dev stores two lists of commands, a pre and post list. */
-void *vfi_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
-			 char *buf)
+int vfi_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
+			 char **buf)
 {
 	return vfi_find_cmd(dev, ah, dev->pre_commands, buf);
 }
 
-void *vfi_find_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
-			  char *buf)
+int vfi_find_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
+			  char **buf)
 {
 	return vfi_find_cmd(dev, ah, dev->post_commands, buf);
 }
@@ -183,34 +292,37 @@ void *vfi_find_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 /* 
  * Register commands to the pre and post lists...
  */
-int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
-			   void **(*f) (struct vfi_dev *,
-					struct vfi_async_handle *, char *))
+int vfi_register_cmd(struct vfi_cmd_elem *commands, char *name,
+			   int (*f) (struct vfi_dev *,
+					struct vfi_async_handle *, char **))
 {
 	struct vfi_cmd_elem *c;
 	int len = strlen(name);
 	c = calloc(1, sizeof(*c) + len + 1);
+	if ( c == NULL)
+		return -ENOMEM;
+
 	strcpy(c->b, name);
 	c->cmd = c->b;
 	c->size = len;
 	c->f = f;
-	c->next = dev->pre_commands;
-	dev->pre_commands = c;
+	c->next = commands;
+	commands = c;
+	return 0;
+}
+
+int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
+			   int (*f) (struct vfi_dev *,
+					struct vfi_async_handle *, char **))
+{
+	return vfi_register_cmd(dev->pre_commands, name,f);
 }
 
 int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
-			    void **(*f) (struct vfi_dev *,
-					 struct vfi_async_handle *, char *))
+			    int (*f) (struct vfi_dev *,
+					 struct vfi_async_handle *, char **))
 {
-	struct vfi_cmd_elem *c;
-	int len = strlen(name);
-	c = calloc(1, sizeof(*c) + len + 1);
-	strcpy(c->b, name);
-	c->cmd = c->b;
-	c->size = len;
-	c->f = f;
-	c->next = dev->post_commands;
-	dev->post_commands = c;
+	return vfi_register_cmd(dev->post_commands, name,f);
 }
 
 /*
@@ -269,15 +381,16 @@ struct vfi_async_handle *vfi_alloc_async_handle(void *e)
 
 /* Alternatively the closure can be set in the async handle at any
  * time convenient to the application. */
-struct vfi_async_handle *vfi_set_async_handle(struct vfi_async_handle *h,
+void *vfi_set_async_handle(struct vfi_async_handle *h,
 						  void *e)
 {
 	struct vfi_async_handle *handle = (struct vfi_async_handle *)h;
+	void *ret = NULL;
 	if (handle->c == handle) {
+		ret = handle->e;
 		handle->e = e;
-		return h;
 	}
-	return 0;
+	return ret;
 }
 
 /* This is the synchronization call for a thread which returns the
@@ -379,7 +492,6 @@ int vfi_post_async_handle(struct vfi_dev *dev)
 		return 0;
 	}
 
-      out:
 	ret = -EINVAL;
 	free(result);
 	return ret;
@@ -397,7 +509,7 @@ int vfi_post_async_handle(struct vfi_dev *dev)
  * post command to be executed once the driver has returned the result
  * of the driver's smb_mmap.
  */
-void *vfi_do_post_cmd(void *e)
+int vfi_do_post_cmd(void *e)
 {
 	struct {
 		void *f;
@@ -405,7 +517,7 @@ void *vfi_do_post_cmd(void *e)
 		struct vfi_async_handle *ah;
 		char *buf;
 	} *me = e;
-	return vfi_find_post_cmd(me->dev, me->ah, me->buf);
+	return vfi_find_post_cmd(me->dev, me->ah, &me->buf);
 }
 
 void *vfi_make_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
@@ -429,7 +541,7 @@ void *vfi_make_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
  */
 int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 {
-	struct vfi_dev *dev = malloc(sizeof(struct vfi_dev));
+	struct vfi_dev *dev = calloc(1,sizeof(struct vfi_dev));
 
 	*device = dev;
 	if (dev == NULL)
@@ -461,6 +573,15 @@ int vfi_fileno(struct vfi_dev *dev)
 	return dev->fd;
 }
 
+int  vfi_dev_done(struct vfi_dev *dev)
+{
+	return dev->done;
+}
+
+int vfi_set_dev_done(struct vfi_dev *dev)
+{
+	dev->
+}
 /*
  * The following are convenience routines for parsing strings to
  * extract common parameters and values.
