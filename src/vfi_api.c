@@ -580,7 +580,8 @@ int  vfi_dev_done(struct vfi_dev *dev)
 
 int vfi_set_dev_done(struct vfi_dev *dev)
 {
-	dev->
+	dev->done = 1;
+	return 0;
 }
 /*
  * The following are convenience routines for parsing strings to
