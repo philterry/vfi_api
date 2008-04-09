@@ -295,6 +295,8 @@ struct vfi_async_handle *vfi_wait_async_handle(struct vfi_async_handle *h,
 		sem_post(&handle->access_sem);
 		if (sem_wait(&handle->wait_sem) < 0)
 			return 0;
+		if (*result)
+			free(*result);
 		*result = handle->result;
 		*e = handle->e;
 		if (sem_wait(&handle->access_sem) < 0)
