@@ -44,7 +44,7 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 	start = strstr(str,"://");
 	if (start) {
 		start += 3;
-		if (sscanf(start,"%a[^.?=/].%a[^?=/]",name,loc) > 0) {
+		if (sscanf(start,"%a[^.?=/#:].%a[^?=/#:]",name,loc) > 0) {
 			return 0;
 		}
 	}
