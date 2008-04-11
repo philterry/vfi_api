@@ -93,10 +93,21 @@ static int get_file(void **s, char **command)
 {
 	int ret;
 	FILE *fp = *s;
-	ret = fscanf(fp, "%a[^\n]", command);
-	if (ret > 0)
-		fgetc(fp);
-	return ret > 0;
+	do {
+		ret = fscanf(fp, " %a[^\n]", command);
+
+		if (ret == EOF) {
+			free(*command);
+			return 0;
+		}
+			
+		if (**command == '#') {
+			free(*command);
+			ret = 0;
+		}
+	} while (ret == 0);
+
+	return ret;
 }
 
 int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
@@ -547,14 +558,16 @@ int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 	if (dev == NULL)
 		return -ENOMEM;
 
+	if (dev_name == NULL)
+		dev_name = "/dev/vfi";
+
 	dev->to = timeout;
-	dev->fd =
-	    open(dev_name ? dev_name : "/dev/vfi", (O_NONBLOCK | O_RDWR));
+	dev->fd = open(dev_name, (O_NONBLOCK | O_RDWR));
 
 	if (dev->fd < 0) {
-		perror("failed");
+		perror(dev_name);
 		free(dev);
-		return (0);
+		return (-ENODEV);
 	}
 
 	dev->file = fdopen(dev->fd, "r+");
