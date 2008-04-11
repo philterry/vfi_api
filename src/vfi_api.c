@@ -8,7 +8,6 @@ int vfi_get_extent(char *str, long *extent)
 	char *ext = strstr(str,":");
 	if (ext) {
 		if (sscanf(ext,":%x",extent) == 1) {
-			printf("%s:%s->%x\n",__FUNCTION__,str,*extent);
 			return 0;
 		}
 	}
@@ -20,7 +19,6 @@ int vfi_get_offset(char *str, long long *offset)
 	char *off = strstr(str,"#");
 	if (off) {
 		if (sscanf(off,"#%llx",offset) == 1) {
-			printf("%s:%s->%llx\n",__FUNCTION__,str,*offset);
 			return 0;
 		}
 	}
@@ -34,7 +32,6 @@ int vfi_get_location(char *str, char **loc)
 	if (start) {
 		start++;
 		if (sscanf(str+start,"%a[^?=/]",loc) == 1) {
-			printf("%s:loc(%s),start(%d),str(%s)\n",__FUNCTION__,*loc,start,str);
 			return 0;
 		}
 	}
@@ -48,7 +45,6 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 	if (start) {
 		start += 3;
 		if (sscanf(start,"%a[^.].%a[^?=/]",name,loc) == 2) {
-			printf("%s:loc(%s),start(%d),str(%s)\n",__FUNCTION__,*loc,start,str);
 			return 0;
 		}
 	}
@@ -276,13 +272,11 @@ int vfi_find_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 	struct vfi_cmd_elem *cmd;
 	char *term;
 	term = strstr(*buf, "://");
-
 	if (term) {
 		int size = term - *buf;
-
 		for (cmd = commands; cmd && cmd->f; cmd = cmd->next)
 			if (size == cmd->size && !strncmp(*buf, cmd->cmd, size))
-				return cmd->f(dev, ah, buf);			       
+				return cmd->f(dev, ah, buf);	
 	}
 	return 0;
 }
@@ -303,7 +297,7 @@ int vfi_find_post_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 /* 
  * Register commands to the pre and post lists...
  */
-int vfi_register_cmd(struct vfi_cmd_elem *commands, char *name,
+int vfi_register_cmd(struct vfi_cmd_elem **commands, char *name,
 			   int (*f) (struct vfi_dev *,
 					struct vfi_async_handle *, char **))
 {
@@ -317,8 +311,8 @@ int vfi_register_cmd(struct vfi_cmd_elem *commands, char *name,
 	c->cmd = c->b;
 	c->size = len;
 	c->f = f;
-	c->next = commands;
-	commands = c;
+	c->next = *commands;
+	*commands = c;
 	return 0;
 }
 
@@ -326,14 +320,14 @@ int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
 			   int (*f) (struct vfi_dev *,
 					struct vfi_async_handle *, char **))
 {
-	return vfi_register_cmd(dev->pre_commands, name,f);
+	return vfi_register_cmd(&dev->pre_commands, name,f);
 }
 
 int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
 			    int (*f) (struct vfi_dev *,
 					 struct vfi_async_handle *, char **))
 {
-	return vfi_register_cmd(dev->post_commands, name,f);
+	return vfi_register_cmd(&dev->post_commands, name,f);
 }
 
 /*

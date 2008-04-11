@@ -349,7 +349,7 @@ extern int vfi_find_post_cmd(struct vfi_dev *dev,
  *
  * Returns: 0 if successful otherwise a negative error code.
  */
-extern int vfi_register_cmd(struct vfi_cmd_elem *list, char *name,
+extern int vfi_register_cmd(struct vfi_cmd_elem **list, char *name,
 				  int (*f) (struct vfi_dev * dev,
 					       struct vfi_async_handle * ah,
 					       char **cmd));
