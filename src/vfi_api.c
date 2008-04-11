@@ -129,7 +129,8 @@ int vfi_get_cmd(struct vfi_source *src, char **command)
 {
 	if (*command)
 		free(*command);
-
+	if (vfi_dev_done(src->d))
+		return 0;
 	return (src->f(src->h, command) > 0);
 }
 
@@ -271,13 +272,16 @@ int vfi_find_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah,
 {
 	struct vfi_cmd_elem *cmd;
 	char *term;
+	int size;
+	
+	size = strlen(*buf);
 	term = strstr(*buf, "://");
-	if (term) {
-		int size = term - *buf;
-		for (cmd = commands; cmd && cmd->f; cmd = cmd->next)
-			if (size == cmd->size && !strncmp(*buf, cmd->cmd, size))
-				return cmd->f(dev, ah, buf);	
-	}
+	if (term) 
+		size = term - *buf;
+
+	for (cmd = commands; cmd && cmd->f; cmd = cmd->next)
+		if (size == cmd->size && !strncmp(*buf, cmd->cmd, size))
+			return cmd->f(dev, ah, buf);	
 	return 0;
 }
 

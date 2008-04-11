@@ -188,9 +188,9 @@ struct vfi_async_handle;
  */
 static inline void *vfi_invoke_closure(void **e, struct vfi_dev *d, struct vfi_async_handle *ah, char *s)
 {
-	if (e)
+	if (e && !vfi_dev_done(d))
 		return ((void *(*)(void *,struct vfi_dev *,struct vfi_async_handle *, char *))e[0]) (e,d,ah,s);
-	return e;
+	return 0;
 }
 
 /**
