@@ -618,10 +618,11 @@ extern int vfi_get_long_arg(char *str, char *name, long *value, int base);
  * vfi_get_dec_arg
  * @str: string to be searched for option
  * @name: option being sought
+ * @val: value of option
  *
  * This is a decimal, ie @base=10, wrapper for vfi_get_long_arg().
  */
-extern long vfi_get_dec_arg(char *str, char *name);
+extern int vfi_get_dec_arg(char *str, char *name, long *val);
 
 /**
  * vfi_get_location
@@ -658,10 +659,11 @@ extern int vfi_get_offset(char *, long long *);
  * vfi_get_hex_arg
  * @str: string to be searched for option
  * @name: option being sought
+ * @val: value of option if found
  *
  * This is a hexadecimal, ie @base=16, wrapper for vfi_get_long_arg().
  */
-extern long vfi_get_hex_arg(char *str, char *name);
+extern int vfi_get_hex_arg(char *str, char *name, long *val);
 /**
  * vfi_poll_read
  * @dev: the #vfi_dev handle to be polled for results.

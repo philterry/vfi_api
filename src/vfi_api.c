@@ -44,7 +44,7 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 	start = strstr(str,"://");
 	if (start) {
 		start += 3;
-		if (sscanf(start,"%a[^.].%a[^?=/]",name,loc) == 2) {
+		if (sscanf(start,"%a[^.?=/].%a[^?=/]",name,loc) > 0) {
 			return 0;
 		}
 	}
@@ -492,8 +492,7 @@ int vfi_post_async_handle(struct vfi_dev *dev)
 	if (ret <= 0)
 		return ret;
 
-	handle =
-	    (struct vfi_async_handle *)vfi_get_hex_arg(result, "reply");
+	ret = vfi_get_hex_arg(result, "reply", (long *)&handle);
 
 	if (handle && (handle->c == handle)) {
 		handle->result = result;
@@ -639,40 +638,31 @@ int vfi_get_long_arg(char *str, char *name, long *value, int base)
 	if (ret > 0) {
 		*value = strtoul(val, 0, base);
 		free(val);
-		return ret;
+		return 0;
 	}
-	return 0;
+	return -1;
 }
 
 /* 
  * Hex interface to get numeric valued option. Assumed hex digits with
  * no leading 0x */
-long vfi_get_hex_arg(char *str, char *name)
+int vfi_get_hex_arg(char *str, char *name, long *val)
 {
-	long val;
-	if (vfi_get_long_arg(str, name, &val, 16))
-		return val;
-	return -1;
+	return vfi_get_long_arg(str, name, val, 16);
 }
 
 /* Decimal interface to get numeric valued option. Assumes decimal
  * digits. */
-long vfi_get_dec_arg(char *str, char *name)
+int vfi_get_dec_arg(char *str, char *name, long *val)
 {
-	long val;
-	if (vfi_get_long_arg(str, name, &val, 10))
-		return val;
-	return -1;
+	return vfi_get_long_arg(str, name, val, 10);
 }
 
 /* Generic interface to get numeric valued option. Leading 0 is octal
  * base, 0x is hex, numeric is decimal. */
-long vfi_get_numeric_arg(char *str, char *name)
+int vfi_get_numeric_arg(char *str, char *name, long *val)
 {
-	long val;
-	if (vfi_get_long_arg(str, name, &val, 0))
-		return val;
-	return -1;
+	return vfi_get_long_arg(str, name, val, 0);
 }
 
 /* Poll vfi driver device for read. */
