@@ -1,0 +1,86 @@
+<!-- ##### SECTION Title ##### -->
+vfi_frmwrk
+
+<!-- ##### SECTION Short_Description ##### -->
+Intermediate API for Framework Application support
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+This API support applications which support the framework concept.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### STRUCT vfi_dev ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### STRUCT vfi_async_handle ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION bind_create_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION smb_mmap_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION smb_create_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION event_find_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION sync_find_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+

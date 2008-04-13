@@ -1,0 +1,573 @@
+<!-- ##### SECTION Title ##### -->
+vfi_api
+
+<!-- ##### SECTION Short_Description ##### -->
+Base API functions
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+This describes the lowest level functions of Vmetro's API for
+FusionIPC which should be of use to any application writer. Other
+higher level modules of the API code such as the framework application
+API build on this layer.
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+vif_frmwrk
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### STRUCT vfi_dev ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION vfi_open ##### -->
+<para>
+
+</para>
+
+@dev: 
+@devname: 
+@timeout: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_close ##### -->
+<para>
+
+</para>
+
+@dev: 
+
+
+<!-- ##### FUNCTION vfi_fileno ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### STRUCT vfi_source ##### -->
+<para>
+
+</para>
+
+@f: 
+@d: 
+@h: 
+
+<!-- ##### FUNCTION vfi_setup_file ##### -->
+<para>
+
+</para>
+
+@dev: 
+@src: 
+@fp: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_cmd ##### -->
+<para>
+
+</para>
+
+@src: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### STRUCT vfi_async_handle ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION vfi_alloc_async_handle ##### -->
+<para>
+
+</para>
+
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_put_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_free_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_set_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_wait_async_handle ##### -->
+<para>
+
+</para>
+
+@h: 
+@r: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_post_async_handle ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### STRUCT vfi_cmd_elem ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION vfi_find_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@list: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_post_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_cmd ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@f: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@f: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_post_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@f: 
+@Returns: 
+
+
+<!-- ##### STRUCT vfi_npc ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION vfi_register_npc ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_npc ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_func ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_func ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### STRUCT vfi_map ##### -->
+<para>
+
+</para>
+
+@f: 
+@name: 
+@mem: 
+@name_buf: 
+
+<!-- ##### FUNCTION vfi_alloc_map ##### -->
+<para>
+
+</para>
+
+@map: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_map ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_map ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_register_event ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_event ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_npc ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@npc: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_func ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_map ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@map: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_find_event ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@e: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_option ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_str_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@val: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_long_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@value: 
+@base: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_dec_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@val: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_location ##### -->
+<para>
+
+</para>
+
+@str: 
+@loc: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_name_location ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@loc: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_extent ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_offset ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_hex_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@val: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_poll_read ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_do_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@format: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_do_cmd_ap ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@format: 
+@Param4: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_do_cmd_str ##### -->
+<para>
+
+</para>
+
+@dev: 
+@reply: 
+@cmd: 
+@size: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_invoke_cmd ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_invoke_cmd_ap ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Param3: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_invoke_cmd_str ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Varargs: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_get_result ##### -->
+<para>
+
+</para>
+
+@Param1: 
+@Param2: 
+@Returns: 
+
+
