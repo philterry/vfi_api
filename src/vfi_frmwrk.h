@@ -10,6 +10,9 @@ struct vfi_async_handle;
  * @ah: async handle in use for this thread
  * @cmd: IO parameter, bind command on input
  *
+ * This command parses the bind_create command in @cmd for event names
+ * and registers them with the API handle @dev's event name list. 
+ *
  * Returns: 0 to indicate that the @cmd should be run by the driver.
  */
 extern int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);

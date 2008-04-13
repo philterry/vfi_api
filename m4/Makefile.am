@@ -2,7 +2,7 @@
 m4datadir = $(datadir)/aclocal
 
 # List your m4 macros here
-m4macros = vfi_api.m4
+m4macros = vfi_api.m4 vfi_frmwrk.m4
 
 # The following is boilerplate
 m4data_DATA = $(m4macros) 

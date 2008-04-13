@@ -36,6 +36,16 @@ VFI_API_LIBDIR="-L${libdir}"
 AC_SUBST(VFI_API_LIBDIR)
 VFI_API_LIBS="-l${PACKAGE}"
 AC_SUBST(VFI_API_LIBS)
+
+VFI_FRMWRK_INCLUDEDIR="-I${includedir}"
+AC_SUBST(VFI_FRMWRK_INCLUDEDIR)
+VFI_FRMWRK_CFLAGS=""
+AC_SUBST(VFI_FRMWRK_CFLAGS)
+VFI_FRMWRK_LIBDIR="-L${libdir}"
+AC_SUBST(VFI_FRMWRK_LIBDIR)
+VFI_FRMWRK_LIBS="-l${PACKAGE}"
+AC_SUBST(VFI_FRMWRK_LIBS)
+
 AC_CONFIG_FILES([Makefile
-                 src/Makefile doc/Makefile m4/Makefile vfi_api-config libvfi_api.pc])
+                 src/Makefile doc/Makefile m4/Makefile vfi_frmwrk-config libvfi_frmwrk.pc vfi_api-config libvfi_api.pc])
 AC_OUTPUT

@@ -84,3 +84,36 @@ This API support applications which support the framework concept.
 @Returns: 
 
 
+<!-- ##### FUNCTION map_init_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION pipe_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION quit_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
