@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libvfi_api
+Description: Framework for Vmetro FusionIPC.
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lvfi_frmwrk
+Cflags: -I${includedir} 
+

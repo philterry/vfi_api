@@ -1,0 +1,91 @@
+#! /bin/sh
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+includedir=@includedir@
+libdir=@libdir@
+
+usage()
+{
+    cat <<EOF
+Usage: $0 [OPTION]
+
+Known values for OPTION are:
+
+  --prefix=DIR		change vfi_frmwrk prefix [default $prefix]
+  --exec-prefix=DIR     change vfi_frmwrk exec prefix [default $exec_prefix]
+  --libs		print library linking information
+  --cflags		print pre-processor and compiler flags
+  --help		display this help and exit
+  --version		output version information
+EOF
+
+    exit $1
+}
+
+if test $# -eq 0; then
+    usage 1
+fi
+
+while test $# -gt 0; do
+    case "$1" in
+    -*=*) optarg=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+    *) optarg= ;;
+    esac
+
+    case "$1" in
+    --prefix=*)
+	if test x"${cflags+set}" = xset ; then
+	    usage 1
+	fi
+	prefix=$optarg
+	if test x"${exec_set_explicitly+set}" = xset ; then
+	    exec_prefix=$optarg
+	fi
+	;;
+
+    --prefix)
+	echo $prefix
+	;;
+
+    --exec-prefix=*)
+        if test x"${libs+set}" = xset ; then
+	    usage 1
+	fi
+	exec_prefix=$optarg
+	exec_set_explicitly=:
+	;;
+
+    --exec-prefix)
+	echo $exec_prefix
+	;;
+
+    --version)
+	echo @VERSION@
+	exit 0
+	;;
+
+    --help)
+	usage 0
+	;;
+
+    --cflags)
+        cflags=:
+       	echo @VFI_FRMWRK_INCLUDEDIR@ @VFI_FRMWRK_CFLAGS@
+       	;;
+
+    --libs)
+	libs=:
+       	echo @VFI_FRMWRK_LIBDIR@ @VFI_FRMWRK_LIBS@ -lrt
+       	;;
+
+    *)
+	usage 1
+	exit 1
+	;;
+    esac
+    shift
+done
+
+exit 0
+
