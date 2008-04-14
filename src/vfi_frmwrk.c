@@ -123,6 +123,26 @@ int event_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	return 0;
 }
 
+static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
+{
+	long rslt;
+	int rc;
+	rc = vfi_get_dec_arg(*result,"result",&rslt);
+	if (rc)
+		return 0;
+
+	return rslt;
+}
+
+int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+{
+	/* location_find://name.location?wait */
+	if (vfi_get_option(*cmd,"wait"))
+		free(vfi_set_async_handle(ah,location_find_closure));
+
+	return 0;
+}
+
 static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
 {
 	long rslt;

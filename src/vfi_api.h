@@ -695,7 +695,7 @@ extern int vfi_get_offset(char *str, long long *offset);
  * Parses string into constituent parts. Parts not found return #NULL. Caller 
  * is responsible for freeing returned strings.
  *
- * Returns: 
+ * Returns: number of elements parsed, 0 or negative on error.
  */
 extern int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src);
 

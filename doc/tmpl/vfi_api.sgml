@@ -431,6 +431,17 @@ vfi_frmwrk
 @Returns: 
 
 
+<!-- ##### FUNCTION vfi_get_hex_arg ##### -->
+<para>
+
+</para>
+
+@str: 
+@name: 
+@val: 
+@Returns: 
+
+
 <!-- ##### FUNCTION vfi_get_location ##### -->
 <para>
 
@@ -472,14 +483,30 @@ vfi_frmwrk
 @Returns: 
 
 
-<!-- ##### FUNCTION vfi_get_hex_arg ##### -->
+<!-- ##### FUNCTION vfi_parse_bind ##### -->
+<para>
+
+</para>
+
+@str: 
+@cmd: 
+@xfer: 
+@dest: 
+@src: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_parse_desc ##### -->
 <para>
 
 </para>
 
 @str: 
 @name: 
-@val: 
+@location: 
+@offset: 
+@extent: 
+@opts: 
 @Returns: 
 
 

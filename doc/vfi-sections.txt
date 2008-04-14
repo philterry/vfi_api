@@ -52,11 +52,13 @@ vfi_get_option
 vfi_get_str_arg
 vfi_get_long_arg
 vfi_get_dec_arg
+vfi_get_hex_arg
 vfi_get_location
 vfi_get_name_location
 vfi_get_extent
 vfi_get_offset
-vfi_get_hex_arg
+vfi_parse_bind
+vfi_parse_desc
 <SUBSECTION>
 vfi_poll_read
 vfi_do_cmd
@@ -87,5 +89,6 @@ sync_find_pre_cmd
 map_init_pre_cmd
 pipe_pre_cmd
 quit_pre_cmd
+location_find_pre_cmd
 </SECTION>
 
