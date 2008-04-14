@@ -51,6 +51,52 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 	return -EINVAL;
 }
 
+int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src)
+{
+	return sscanf(str,"%a[^:]://%a[^/]/%a[^=]=%a[^\n]",&cmd,xfer,dest,src);
+}
+
+int vfi_parse_desc(char *str, char **name, char **location, int *offset, int *extent, char **opts)
+{
+	char *p, *q;
+	int cnt;
+
+	cnt = sscanf(str,"%a[^?]?%a[^\n]",&p,opts);
+
+	if (cnt < 2) {
+		free(*opts);
+		*opts = NULL;
+	}
+
+	cnt = sscanf(p,"%a[^.#:].%a[^#:]%a[^\n]",name,location,&q);
+	free(p);
+	p = NULL;
+
+	switch (cnt) {
+	case 1:
+		free(*location);
+		*location = NULL;
+		free(q);
+		sscanf(*name,"%a[^#:]",&p,&q);
+		free(*name);
+		*name = p;
+	case 3:
+		cnt = 0;
+		cnt += sscanf(q,"#%llx:%lx",offset,extent);
+		cnt++;
+		cnt += sscanf(q,":%lx#%llx",extent,offset);
+		break;
+	case 2:
+		cnt = 0;
+	default:
+		break;
+	}
+	
+	free(q);
+
+	return cnt;
+}
+
 struct vfi_dev {
 	int fd;
 	FILE *file;

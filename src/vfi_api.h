@@ -406,6 +406,9 @@ struct vfi_npc;
  * @name: the name of the closure to be added.
  * @e: the closure to be added.
  *
+ * This is the generic function underlying vfi_register_map(),
+ * vfi_register_event(), vfi_register_func().
+ *
  * Returns: 0 on success otherwise error.
  */
 extern int vfi_register_npc(struct vfi_npc **list, char *name, void *e);
@@ -415,6 +418,9 @@ extern int vfi_register_npc(struct vfi_npc **list, char *name, void *e);
  * @list: the list header of npc's
  * @name: the name of the closure to be added.
  * @e: returns the closure of unregistered entry.
+ *
+ * This function is the generic function underlying vfi_register_map(),
+ * vfi_register_event(), vfi_register_func().
  *
  * Returns: 0 on success otherwise error.
  */
@@ -453,6 +459,8 @@ extern int vfi_unregister_func(struct vfi_dev *dev, char *name, void **e);
  * @mem: a void * to the virtual address of the mmap
  * @extent: the size of the mmap in bytes.
  * @name_buf: the name buffer pointed to by @name
+ *
+ * This structure is used to provide a closure structure for use with vfi_register_map() and vfi_find_map().
  */
 struct vfi_map {
 	void *f;
@@ -484,7 +492,7 @@ extern int vfi_alloc_map(struct vfi_map **map, char *name);
  *
  * Returns: 0 on success otherwise error
  */
-extern int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *e);
+extern int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *map);
 
 /**
  * vfi_unregister_map
@@ -497,7 +505,7 @@ extern int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *e);
  *
  * Returns: 0 on success otherwise error
  */
-extern int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **e);
+extern int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **map);
 
 /**
  * vfi_register_event
@@ -621,6 +629,8 @@ extern int vfi_get_long_arg(char *str, char *name, long *value, int base);
  * @val: value of option
  *
  * This is a decimal, ie @base=10, wrapper for vfi_get_long_arg().
+ *
+ * Returns: 0 on success else error.
  */
 extern int vfi_get_dec_arg(char *str, char *name, long *val);
 
@@ -652,8 +662,57 @@ extern int vfi_get_location(char *str, char **loc);
  */
 extern int vfi_get_name_location(char *str, char **name, char **loc);
 
-extern int vfi_get_extent(char *, long *);
-extern int vfi_get_offset(char *, long long *);
+/**
+ * vfi_get_extent
+ * @str: string to be searched "name[.location][#offset][:extent]
+ * @extent: output parameter to hold value of extent if found
+ *
+ * Searches for an extent string, :extent, and if found returns it in @extent.
+ *
+ * Returns: 0 on success, otherwise error.
+ */
+extern int vfi_get_extent(char *str, long *extent);
+
+/**
+ * vfi_get_offset
+ * @str: string to be searched "name[.location][#offset][:extent]
+ * @offset: output parameter to hold value of offset if found
+ *
+ * Searches for an offset string, #offset, and if found returns it in @offset.
+ *
+ * Returns: 0 on success, otherwise error.
+ */
+extern int vfi_get_offset(char *str, long long *offset);
+
+/**
+ * vfi_parse_bind
+ * @str: string to be parsed of form cmd://xfer/dest=src
+ * @cmd: cmd string if found else #NULL
+ * @xfer: xfer string if found else #NULL
+ * @dest: dest string if found else #NULL
+ * @src: src string if found else #NULL
+ *
+ * Parses string into constituent parts. Parts not found return #NULL. Caller 
+ * is responsible for freeing returned strings.
+ *
+ * Returns: 
+ */
+extern int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src);
+
+/**
+ * vfi_parse_desc
+ * @str: string to be parsed of form name[.location][#offset][:extent][[?option][,option]*]
+ * @name: string containing name if found or #NULL
+ * @location: string containing location if found or NULL
+ * @offset: long long to contain value of #offset if found else undefined
+ * @extent: long to contain value of :extent if found else undefined
+ * @opts: string containing options if found else NULL.
+ *
+ * Parses desc string. Returned strings must be freed by caller.
+ *
+ * Returns: 0 if no extent or offset, 1 if extent, 2 if offset, 3 if both found.
+ */
+extern int vfi_parse_desc(char *str, char **name, char **location, int *offset, int *extent, char **opts);
 
 /**
  * vfi_get_hex_arg
@@ -662,8 +721,11 @@ extern int vfi_get_offset(char *, long long *);
  * @val: value of option if found
  *
  * This is a hexadecimal, ie @base=16, wrapper for vfi_get_long_arg().
+ *
+ * Returns: 0 on success else error.
  */
 extern int vfi_get_hex_arg(char *str, char *name, long *val);
+
 /**
  * vfi_poll_read
  * @dev: the #vfi_dev handle to be polled for results.
@@ -671,33 +733,42 @@ extern int vfi_get_hex_arg(char *str, char *name, long *val);
  * This function polls the underlying file descriptor for a
  * non-blocking read. The poll blocks for the timeout configued for
  * the @dev.
+ *
+ * Returns: positive on success, 0 on timeout, negative on error. See poll().
  */
 extern int vfi_poll_read(struct vfi_dev *dev);
+
 /**
  * vfi_do_cmd
  * @dev: the device to which the command is sent and from which the
  * reply is obtained.
  * @reply: the output char * parameter to receive the reply string.
  * @format: the format string to "print" the command to the @dev.
- * @varargs: parameters for the format printf.
+ * @...: parameters for the format printf.
  *
  * This command dispatches the command to the @dev and then blocks for
  * the response. These do_cmds do not use an #vfi_async_handle but
  * rely on the application not issuing multiple writes, i.e.,
  * interleaved vfi_invoke_cmd() like functions are not used.
+ *
+ * Returns: 0 on success else error
  */
 extern int vfi_do_cmd(struct vfi_dev *dev, char **reply, char *format, ...)
     __attribute__ ((format(printf, 3, 4)));
+
 /**
  * vfi_do_cmd_ap
  * @dev: the device to be used to send command and receive reply.
  * @reply: the reply output parameter
  * @format: the format string used to print the command to the @dev.
- * @va_list: va_list
+ * @list: va_list to satisfy @format
  *
- * This command is a va_list interface to vfi_do_cmd()
+ * This command is a va_list interface to vfi_do_cmd().
+ *
+ * Returns: 0 on success else error.
  */
-extern int vfi_do_cmd_ap(struct vfi_dev *dev, char **reply, char *format, va_list);
+extern int vfi_do_cmd_ap(struct vfi_dev *dev, char **reply, char *format, va_list list);
+
 /**
  * vfi_do_cmd_str
  * @dev: the device to be used
@@ -705,18 +776,67 @@ extern int vfi_do_cmd_ap(struct vfi_dev *dev, char **reply, char *format, va_lis
  * @cmd: the command string to be sent
  * @size: optional size of the @cmd string. 0 if unknown.
  *
- * This is a string interface version of vfi_do_cmd()
+ * This is a string interface version of vfi_do_cmd().
+ *
+ * Returns: 0 on success else error
  */
 extern int vfi_do_cmd_str(struct vfi_dev *dev, char **reply, char *cmd, int size);
+
 /**
  * vfi_invoke_cmd
+ * @dev: #vfi_dev handle currently in use
+ * @format: format string to "print" command to @dev
+ * @...: paramters to satisfy @format
+ *
+ * Use this varadic function to print a command to @dev. To obtain the
+ * result from the driver you must print a "?request(%p)" in the
+ * format passing a #vfi_async_handle to satisfy the %p. This allows
+ * vif_post_async_handle() to pass the result back via the async
+ * handle when retrieve with a call to vfi_wait_async_handle().
+ *
+ * Returns: length of string written to @dev else 0 or negative error.
  */
-extern int vfi_invoke_cmd(struct vfi_dev *, char *, ...)
+extern int vfi_invoke_cmd(struct vfi_dev *dev, char *format, ...)
     __attribute__ ((format(printf, 2, 3)));
-extern int vfi_invoke_cmd_ap(struct vfi_dev *, char *, va_list);
-extern int vfi_invoke_cmd_str(struct vfi_dev *, char *, int);
 
-extern int vfi_get_result(struct vfi_dev *, char **);
+/**
+ * vfi_invoke_cmd_ap
+ * @dev: #vfi_dev handle currently in use
+ * @format: format string to "print" command to @dev
+ * @list: parameters to satisfy @format
+ *
+ * This function is the same as vfi_invoke_cmd() where the caller is
+ * already varadic.
+ *
+ * Returns: length of string written to @dev else 0 or negative error.
+ */
+extern int vfi_invoke_cmd_ap(struct vfi_dev *dev, char *format,va_list list);
+
+/**
+ * vfi_invoke_cmd_str
+ * @dev: #vfi_dev handle currently in use
+ * @str: the command string to be passed to the driver
+ * @size: 0 or size of string @str
+ *
+ * As with vfi_invoke_cmd() the string @str should contain a
+ * request(xxx) option where xxx is the address of an
+ * #vfi_async_handle.
+ *
+ * Returns: length of string written to @dev else 0 or negative error.
+ */
+extern int vfi_invoke_cmd_str(struct vfi_dev *dev, char *str, int size);
+
+/**
+ * vfi_get_result
+ * @dev: @vfi_dev handle in use
+ * @result: string returned from driver
+ *
+ * This command is used to read results from the driver. The returned
+ * string must be freed by the caller at some point.
+ *
+ * Returns: 1 on success or negative on error.
+ */
+extern int vfi_get_result(struct vfi_dev *dev, char **result);
 
 
  /*

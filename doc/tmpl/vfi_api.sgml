@@ -14,7 +14,7 @@ API build on this layer.
 
 <!-- ##### SECTION See_Also ##### -->
 <para>
-vif_frmwrk
+vfi_frmwrk
 </para>
 
 <!-- ##### SECTION Stability_Level ##### -->
@@ -306,7 +306,7 @@ vif_frmwrk
 
 @dev: 
 @name: 
-@e: 
+@map: 
 @Returns: 
 
 
@@ -317,7 +317,7 @@ vif_frmwrk
 
 @dev: 
 @name: 
-@e: 
+@map: 
 @Returns: 
 
 
@@ -457,8 +457,8 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
+@str: 
+@extent: 
 @Returns: 
 
 
@@ -467,8 +467,8 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
+@str: 
+@offset: 
 @Returns: 
 
 
@@ -512,7 +512,7 @@ vif_frmwrk
 @dev: 
 @reply: 
 @format: 
-@Param4: 
+@list: 
 @Returns: 
 
 
@@ -533,8 +533,8 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
+@dev: 
+@format: 
 @Varargs: 
 @Returns: 
 
@@ -544,9 +544,9 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
-@Param3: 
+@dev: 
+@format: 
+@list: 
 @Returns: 
 
 
@@ -555,9 +555,9 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
-@Varargs: 
+@dev: 
+@str: 
+@size: 
 @Returns: 
 
 
@@ -566,8 +566,8 @@ vif_frmwrk
 
 </para>
 
-@Param1: 
-@Param2: 
+@dev: 
+@result: 
 @Returns: 
 
 
