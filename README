@@ -1,87 +1,112 @@
-So I go to some directory . and in there I create a directory src
-and a Makefile.am containing
+Welcome to Vmetro's FusionIPC API Library Package!
 
-SUBDIRS = src
+You will have obtained this file and the directory it resides in by
+one of two "official" methods. 
 
-then in my src directory I create my test library code vfi_api.c
+1. You obtained and unpacked a tarball vfi_api-<version>.tar.gz, or, 
+2. You checked out the latest package from a CVS or GIT server.
 
-#include "vfi_api.h"
-#include <stdio.h>
+Unofficially you may have unpacked a checkout directory from an
+unofficial tarball, etc.
 
-int vfi_smb_create(char *desc)
-{
-	char buffer[128];
-	int ret;
+If there are a lot of files, including a "configure" script in the top
+level directory you have a type 1 above. If there is no configure
+script you probably have a type 2 above, but you may have a borked
+type 1. If you are unsure, obtain a legitimate source from vmetro.com.
 
-	FILE *fp = fopen("/dev/vfi", "rw");
+Tarball
+=======
 
-	if (NULL == fp)
-		return -1;
+If you have a type 1 package follow the installation instructions
+given in ./INSTALL. These are generic instructions. ./configure --help
+is always a good first step to know what features and controls are
+available for this package. See also Useful Tips below.
 
-	fprintf(fp,"smb_create://%s",desc);
+Checkout
+========
 
-	fscanf(fp,"[%d]%s",&ret,buffer);
-	
-	fclose(fp);
+If you have a type 2 package you need to follow a few simple steps to
+bootstrap the package to a type 1. These steps require that you have
+the autotools installed on your development system: autoconf,
+automake, libtool. You should use an up to date version of these tools
+if possible. In the top level directory run 
 
-	printf("smb_create://%s returns [%d]%s\n",desc,ret,buffer);
+   autoreconf -i
 
-	return ret;
-}
+If this is not successful follow the helpful suggestions printed out
+to fix the problem. If you are unsuccessful contact support@vmetro.com
 
-and its header file vfi_api.h
+If successful run
 
-#ifndef VFI_API_H
-#define VFI_API_H
-#endif	/* VFI_API_H */
+   ./configure --help
 
-and a Makefile.am containing
+to decide what if any parameters you wish to use then run
 
-lib_LTLIBRARIES = libvfi_api.la
+   ./configure <parameters and options>
 
-libvfi_api_la_SOURCES = vfi_api.c vfi_api.h
+usually you use --prefix=$HOME/somedir etc., to avoid needing
+superuser access to /usr/local, etc. See Useful Tips below.
 
+If this fails follow the helpful suggestions printed out to fix the
+problem. If you are unsuccessful contact support@vmetro.com
 
-so now I have the following directory structure
+If successful run 
 
-.:
-total 4
--rw-rw-r-- 1 phil phil   14 Jul  1 17:54 Makefile.am
-drwxrwxr-x 2 phil phil 1024 Jul 13 15:36 src
+   make distcheck
 
-./src:
-total 3
--rw-rw-r-- 1 phil phil  86 Jul  1 18:39 Makefile.am
--rw-rw-r-- 1 phil phil 344 Jul  1 19:29 vfi_api.c
--rw-rw-r-- 1 phil phil  65 Jul  1 17:57 vfi_api.h
+If this succeeds you should have a ./vfi_api-<version>.tar.gz tarball
+version of your directory and everything is now known to work.
 
-OK, so now issue the following command in the top level directory .
+If you wish to give someone a tarball of this package from your
+checkout this is the correct procedure to follow as it will give them
+a clean tarball not contaminated by your local changes and configured
+files and yet doesn't require them to have all the autoconf etc tool
+sets.
 
-touch README ChangeLog AUTHORS NEWS
+Useful Tips
+===========
 
-Then its autoscan which will generate you a configure.scan file.
-Edit this as follows and save it as configure.ac 
+Run
 
---- configure.scan	2007-07-13 15:40:29.000000000 -0700
-+++ configure.ac	2007-07-13 15:42:41.000000000 -0700
-@@ -2,10 +2,11 @@
- # Process this file with autoconf to produce a configure script.
- 
- AC_PREREQ(2.59)
--AC_INIT(FULL-PACKAGE-NAME, VERSION, BUG-REPORT-ADDRESS)
-+AC_INIT([vfi_api], [0.1], [Phil Terry <pterry@micromemory.com>])
-+AM_INIT_AUTOMAKE
- AC_CONFIG_SRCDIR([src/vfi_api.c])
- AC_CONFIG_HEADER([config.h])
--
-+AC_PROG_LIBTOOL
- # Checks for programs.
- AC_PROG_CC
- 
-Now run autoreconf -i
+	make install 
 
-Now run ./configure
+to install this package and
 
-Now run ./make distcheck
+   make uninstall 
 
-Voila this tarball
+to remove it. You may need to be superuser for these two commands
+depending on your access rights to the prefix and/or DESTDIR
+directories.
+
+If you are running on a development system which is also the host
+system to run the code you will typically use --prefix=... to decide
+where to install the code, for example --prefix=/home/me/sandbox
+
+If you are running on a development system where the host system is
+another system, typically an embedded system you will typically use
+--prefix=/usr and then use the DESTDIR envirionment variable to
+actually have the files installed in a staging directory. This will
+either be an NFS exported directory which the target host mounts for
+its root filesystem or a directory which will be used to create an
+initrd or ram filesystem file for an embedded target.
+
+       ./configure --prefix=/usr ...
+       DESTDIR=xxx make ...
+       
+or
+	./configure --prefix=/usr ...
+	setenv DESTDIR xxx
+	make ...
+
+depending on shell type or
+
+	  ./configure --prefix=/usr
+	  make DESTDIR=xxx ...
+
+to use make variable for DESTDIR.
+
+The prefix setting will affect how dynamic libraries and applications
+are linked for run-time, /usr/..., while the DESTDIR prefix affects where the
+files are actually stored during the install, xxx/usr/...
+
+DESTDIR should be a non-relative path, /xxx/xyz/yyy, etc.
