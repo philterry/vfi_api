@@ -161,12 +161,10 @@ int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 
 	return 0;
 }
-/* The API pre-command to create and deliver a closure which executes
- * the named function on the named maps, invokes the chained events,
- * and is reinvoked on completion of the chained events. */
+
 int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
 {
-/* pipe://[<inmap><]*<func>[(<event>[,<event>]*)][><omap>]*  */
+	/* pipe://[<inmap><]*<func>[(<event>[,<event>]*)][><omap>]*  */
 
 	char *sp;
 	int size = 0;
@@ -227,6 +225,9 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 		else
 			sp += 1;
 	}
+
+	free(sp);
+
 	numpipe = i + 1;
 	numimaps = func;
 
