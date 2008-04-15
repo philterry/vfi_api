@@ -24,7 +24,7 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 	vfi_register_event(dev,sen,sl);
 	vfi_register_event(dev,den,dl);
 
-	free(sl);free(dl);free(sen);free(den);
+	free(sen);free(den);
 
 	return 0;
 }
