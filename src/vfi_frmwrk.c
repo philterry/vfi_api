@@ -9,7 +9,7 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 
 	char *cmd, *xfer, *dest, *src, *sl, *dl, *sen, *den;
 
-	vfi_parse_bind(*command, &cmd, &xfer, &dest, &src);
+	vfi_parse_ternary_op(*command, &cmd, &xfer, &dest, &src);
 
 	free(cmd);free(xfer);
 
@@ -183,12 +183,12 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	void **pipe;
 	char *elem[20];
 	void *e;
-	char *cmd, *dst, *src;
+	char *cmd;
 	char *result = NULL;
 	char *eloc;
 
-	vfi_parse_bind(*command, &cmd, &sp,&dst,&src);
-	free(cmd);free(dst);free(src);
+	vfi_parse_unary_op(*command, &cmd, &sp);
+	free(cmd);
 
 	while (*sp) {
 		if (sscanf(sp," %a[^<>,()]%n",&elem[i],&size) > 0) {

@@ -685,19 +685,32 @@ extern int vfi_get_extent(char *str, long *extent);
 extern int vfi_get_offset(char *str, long long *offset);
 
 /**
- * vfi_parse_bind
+ * vfi_parse_ternary_op
  * @str: string to be parsed of form cmd://xfer/dest=src
  * @cmd: cmd string if found else #NULL
  * @xfer: xfer string if found else #NULL
  * @dest: dest string if found else #NULL
  * @src: src string if found else #NULL
  *
- * Parses string into constituent parts. Parts not found return #NULL. Caller 
+ * Parses string into constituent parts. Parts not found return strings containing #NULL. Caller 
  * is responsible for freeing returned strings.
  *
  * Returns: number of elements parsed, 0 or negative on error.
  */
-extern int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src);
+extern int vfi_parse_ternary_op(char *str, char **cmd, char **xfer, char **dest, char **src);
+
+/**
+ * vfi_parse_unary_op
+ * @str: string to be parsed of form cmd://desc
+ * @cmd: cmd string if found else #NULL
+ * @desc: desc string if found else #NULL
+ *
+ * Parses string into constituent parts. Parts not found return strings containing #NULL. Caller 
+ * is responsible for freeing returned strings.
+ *
+ * Returns: number of elements parsed, 0 or negative on error.
+ */
+extern int vfi_parse_unary_op(char *str, char **cmd, char **desc);
 
 /**
  * vfi_parse_desc

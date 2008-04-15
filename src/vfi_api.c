@@ -51,9 +51,14 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 	return -EINVAL;
 }
 
-int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src)
+int vfi_parse_ternary_op(char *str, char **cmd, char **xfer, char **dest, char **src)
 {
 	return sscanf(str,"%a[^:]://%a[^/]/%a[^=]=%a[^\n]",cmd,xfer,dest,src);
+}
+
+int vfi_parse_unary_op(char *str, char **cmd, char **desc)
+{
+	return sscanf(str,"%a[^:]://%a[^\n]",cmd,desc);
 }
 
 int vfi_parse_desc(char *str, char **name, char **location, int *offset, int *extent, char **opts)
