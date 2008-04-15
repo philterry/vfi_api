@@ -54,15 +54,6 @@ vfi_frmwrk
 @Returns: 
 
 
-<!-- ##### STRUCT vfi_source ##### -->
-<para>
-
-</para>
-
-@f: 
-@d: 
-@h: 
-
 <!-- ##### FUNCTION vfi_setup_file ##### -->
 <para>
 
@@ -279,16 +270,6 @@ vfi_frmwrk
 @Returns: 
 
 
-<!-- ##### STRUCT vfi_map ##### -->
-<para>
-
-</para>
-
-@f: 
-@name: 
-@mem: 
-@name_buf: 
-
 <!-- ##### FUNCTION vfi_alloc_map ##### -->
 <para>
 
@@ -483,7 +464,7 @@ vfi_frmwrk
 @Returns: 
 
 
-<!-- ##### FUNCTION vfi_parse_bind ##### -->
+<!-- ##### FUNCTION vfi_parse_ternary_op ##### -->
 <para>
 
 </para>
@@ -493,6 +474,17 @@ vfi_frmwrk
 @xfer: 
 @dest: 
 @src: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_parse_unary_op ##### -->
+<para>
+
+</para>
+
+@str: 
+@cmd: 
+@desc: 
 @Returns: 
 
 

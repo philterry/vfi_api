@@ -57,7 +57,8 @@ vfi_get_location
 vfi_get_name_location
 vfi_get_extent
 vfi_get_offset
-vfi_parse_bind
+vfi_parse_ternary_op
+vfi_parse_unary_op
 vfi_parse_desc
 <SUBSECTION>
 vfi_poll_read

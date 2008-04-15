@@ -68,19 +68,12 @@ int vfi_parse_desc(char *str, char **name, char **location, int *offset, int *ex
 
 	cnt = sscanf(str,"%a[^?]?%a[^\n]",&p,opts);
 
-	if (cnt < 2) {
-		free(*opts);
-		*opts = NULL;
-	}
-
 	cnt = sscanf(p,"%a[^.#:].%a[^#:]%a[^\n]",name,location,&q);
 	free(p);
 	p = NULL;
 
 	switch (cnt) {
 	case 1:
-		free(*location);
-		*location = NULL;
 		free(q);
 		sscanf(*name,"%a[^#:]",&p,&q);
 		free(*name);
