@@ -10,10 +10,11 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 	char *sl=NULL,*dl=NULL,*xl=NULL,*dst=NULL,*sen=NULL,*den=NULL;
 	char *src;
 	int size;
-	
-	sscanf(*cmd,   "%a[^/]%n",&xl,&size);
-	src = *cmd + size;
-	sscanf(*cmd+size,"%a[^=]%n",&dst,&size);
+	char *start = strstr(*cmd,"://") + strlen("://");
+
+	sscanf(start,"%a[^/]%n",&xl,&size);
+	src = start + size;
+	sscanf(start+size,"%a[^=]%n",&dst,&size);
 	src = src + size;
 	
 	vfi_get_str_arg(src,"event_name",&sen);
@@ -25,7 +26,7 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 	vfi_register_event(dev,sen,sl);
 	vfi_register_event(dev,den,dl);
 
-	free(xl);free(sl);free(dl);free(dst);free(sen);free(den);
+	free(xl);free(dst);free(sen);free(den);
 
 	return 0;
 }
@@ -169,7 +170,7 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 /* pipe://[<inmap><]*<func>[(<event>[,<event>]*)][><omap>]*  */
 
-	char *sp = *cmd;
+	char *sp;
 	int size = 0;
 	int i = 0;
 	int numpipe = 0;
@@ -186,6 +187,8 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 	void *e;
 	char *result = NULL;
 	char *eloc;
+
+	sp = strstr(*cmd, "://") + strlen("://");
 
 	while (*sp) {
 		if (sscanf(sp," %a[^<>,()]%n",&elem[i],&size) > 0) {
@@ -251,24 +254,28 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 
 	for (i = 0; i< numomaps;i++) {
 		vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[func+i+2]);
-		free(elem[func+i+1]);
+		free(elem[events+i+1]);
 	}
 
 	pipe[1] = (void *)(((numimaps & 0xff) << 0) | ((numomaps & 0xff) << 8));
 	pipe[1] =  (void *)((unsigned int)pipe[1] ^ (unsigned int)pipe[0]);
 
-	if (numevnts > 1)
+	if (numevnts > 1) {
 		for (i = 0; i< numevnts-1;i++) {
 			vfi_find_event(dev,elem[func+i+1],(void **)&eloc);
 			vfi_invoke_cmd(dev,"event_chain://%s.%s?request(%p),event_name(%s)\n",
 				       elem[func+i+1],
 				       eloc,
 				       ah,
-				       elem[func+1+2]);
+				       elem[func+i+2]);
 			vfi_wait_async_handle(ah,&result,&e);
+
 			if (i)
 				free(elem[func+i+1]);
 		}
+		free(elem[func+i+1]);
+	}
+
 	free(*cmd);
 	*cmd = malloc(128);
 	vfi_find_event(dev,elem[func+1],(void **)&eloc);

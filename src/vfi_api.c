@@ -215,7 +215,7 @@ int vfi_find_npc(struct vfi_npc *elems, char *name, struct vfi_npc **npc)
 int vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 {
 	struct vfi_npc *l;
-	if (vfi_find_npc(*elems, name, &l))
+	if (!vfi_find_npc(*elems, name, &l))
 		return -EINVAL;
 	l = calloc(1, sizeof(*l) + strlen(name) + 1);
 	l->size = strlen(name);
