@@ -53,7 +53,7 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 
 int vfi_parse_bind(char *str, char **cmd, char **xfer, char **dest, char **src)
 {
-	return sscanf(str,"%a[^:]://%a[^/]/%a[^=]=%a[^\n]",&cmd,xfer,dest,src);
+	return sscanf(str,"%a[^:]://%a[^/]/%a[^=]=%a[^\n]",cmd,xfer,dest,src);
 }
 
 int vfi_parse_desc(char *str, char **name, char **location, int *offset, int *extent, char **opts)

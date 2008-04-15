@@ -3,30 +3,28 @@
 #include <vfi_api.h>
 #include <vfi_frmwrk.h>
 
-int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
 {
 	/* bind_create://x.xl.f/d.dl.f?event_name(dn)=s.sl.f?event_name(sn) */
 
-	char *sl=NULL,*dl=NULL,*xl=NULL,*dst=NULL,*sen=NULL,*den=NULL;
-	char *src;
-	int size;
-	char *start = strstr(*cmd,"://") + strlen("://");
+	char *cmd, *xfer, *dest, *src, *sl, *dl, *sen, *den;
 
-	sscanf(start,"%a[^/]%n",&xl,&size);
-	src = start + size;
-	sscanf(start+size,"%a[^=]%n",&dst,&size);
-	src = src + size;
-	
+	vfi_parse_bind(*command, &cmd, &xfer, &dest, &src);
+
+	free(cmd);free(xfer);
+
 	vfi_get_str_arg(src,"event_name",&sen);
-	vfi_get_str_arg(dst,"event_name",&den);
+	vfi_get_str_arg(dest,"event_name",&den);
 
 	vfi_get_location(src,&sl);
-	vfi_get_location(dst,&dl);
+	vfi_get_location(dest,&dl);
+
+	free(dest);free(src);
 
 	vfi_register_event(dev,sen,sl);
 	vfi_register_event(dev,den,dl);
 
-	free(xl);free(dst);free(sen);free(den);
+	free(sl);free(dl);free(sen);free(den);
 
 	return 0;
 }
@@ -166,7 +164,7 @@ int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 /* The API pre-command to create and deliver a closure which executes
  * the named function on the named maps, invokes the chained events,
  * and is reinvoked on completion of the chained events. */
-int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
 {
 /* pipe://[<inmap><]*<func>[(<event>[,<event>]*)][><omap>]*  */
 
@@ -185,10 +183,12 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 	void **pipe;
 	char *elem[20];
 	void *e;
+	char *cmd, *dst, *src;
 	char *result = NULL;
 	char *eloc;
 
-	sp = strstr(*cmd, "://") + strlen("://");
+	vfi_parse_bind(*command, &cmd, &sp,&dst,&src);
+	free(cmd);free(dst);free(src);
 
 	while (*sp) {
 		if (sscanf(sp," %a[^<>,()]%n",&elem[i],&size) > 0) {
@@ -276,13 +276,13 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 		free(elem[func+i+1]);
 	}
 
-	free(*cmd);
-	*cmd = malloc(128);
+	free(*command);
+	*command = malloc(128);
 	vfi_find_event(dev,elem[func+1],(void **)&eloc);
-	i = snprintf(*cmd,128,"event_start://%s.%s?request(%p)\n",elem[func+1],eloc,ah);
+	i = snprintf(*command,128,"event_start://%s.%s?request(%p)\n",elem[func+1],eloc,ah);
 	if (i >= 128) {
-		*cmd = realloc(*cmd,i+1);
-		snprintf(*cmd,128,"event_start://%s.%s\n",elem[func+1],eloc);
+		*command = realloc(*command,i+1);
+		snprintf(*command,128,"event_start://%s.%s\n",elem[func+1],eloc);
 	}
 
 	free(elem[func+1]);
