@@ -167,6 +167,7 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	/* pipe://[<inmap><]*<func>[(<event>[,<event>]*)][><omap>]*  */
 
 	char *sp;
+	char *iter;
 	int size = 0;
 	int i = 0;
 	int numpipe = 0;
@@ -187,10 +188,11 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 
 	vfi_parse_unary_op(*command, &cmd, &sp);
 	free(cmd);
+	iter = sp;
 
-	while (*sp) {
-		if (sscanf(sp," %a[^<>,()]%n",&elem[i],&size) > 0) {
-			switch (*(sp+size)) {
+	while (*iter) {
+		if (sscanf(iter,"%a[^<>,()]%n",&elem[i],&size) > 0) {
+			switch (*(iter+size)) {
 			case '<':
 				inmaps = i;
 				break;
@@ -220,10 +222,10 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 				break;
 			}
 			i++;
-			sp += size;
+			iter += size;
 		}
 		else
-			sp += 1;
+			iter += 1;
 	}
 
 	free(sp);
