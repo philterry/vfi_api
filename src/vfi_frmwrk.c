@@ -60,18 +60,18 @@ int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 	return 0;
 }
 
-static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
+static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	int i;
 	char *smb;
 	struct {void *f; char *name; char **cmd;} *p = e;
 	struct vfi_map *me;
 	vfi_alloc_map(&me,p->name);
-	sscanf(*result+strlen("smb_create://"),"%a[^?]",&smb);
+	sscanf(result+strlen("smb_create://"),"%a[^?]",&smb);
 	sprintf(*p->cmd,"smb_mmap://%s?map_name(%s)\n",smb,p->name);
 	free(smb);
 	me->f = smb_mmap_closure;
-	vfi_get_extent(*result,&me->extent);
+ 	vfi_get_extent(result,&me->extent);
 	free(p->name);
 	free(vfi_set_async_handle(ah,me));
 	return 0;
@@ -96,7 +96,7 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	return 0;
 }
 
-static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
+static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	/* event_find://name.location */
 	char *name;
@@ -104,12 +104,12 @@ static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 	long err;
 	int rc;
 
-	rc = vfi_get_dec_arg(*result,"result",&err);
+	rc = vfi_get_dec_arg(result,"result",&err);
 	if (!err && !rc) {
-		rc = vfi_get_name_location(*result,&name,&location);
+		rc = vfi_get_name_location(result,&name,&location);
 		if (!rc) {
 			vfi_register_event(dev,name,location);
-			free(name);free(location);
+			free(name);
 		}
 	}
 	return 0;
@@ -118,15 +118,20 @@ static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 int event_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* event_find://name.location */
-	free(vfi_set_async_handle(ah,event_find_closure));
+	struct {void *f;} *e = calloc(1,sizeof(*e));
+	if (e) {
+		e->f = event_find_closure;
+		free(vfi_set_async_handle(ah,e));
+	}
+
 	return 0;
 }
 
-static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
+static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	long rslt;
 	int rc;
-	rc = vfi_get_dec_arg(*result,"result",&rslt);
+	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
 		return 0;
 
@@ -136,17 +141,22 @@ static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_
 int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* location_find://name.location?wait */
-	if (vfi_get_option(*cmd,"wait"))
-		free(vfi_set_async_handle(ah,location_find_closure));
+	if (vfi_get_option(*cmd,"wait")) {
+		struct {void *f;} *e = calloc(1,sizeof(*e));
+		if (e) {
+			e->f = location_find_closure;
+			free(vfi_set_async_handle(ah,e));
+		}
+	}
 
 	return 0;
 }
 
-static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char **result)
+static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	long rslt;
 	int rc;
-	rc = vfi_get_dec_arg(*result,"result",&rslt);
+	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
 		return 0;
 
@@ -156,8 +166,13 @@ static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_hand
 int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* sync_find://name.location?wait */
-	if (vfi_get_option(*cmd,"wait"))
-		free(vfi_set_async_handle(ah,sync_find_closure));
+	if (vfi_get_option(*cmd,"wait")) {
+		struct {void *f;} *e = calloc(1,sizeof(*e));
+		if (e) {
+			e->f = sync_find_closure;
+			free(vfi_set_async_handle(ah,e));
+		}
+	}
 
 	return 0;
 }
@@ -282,10 +297,10 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	free(*command);
 	*command = malloc(128);
 	vfi_find_event(dev,elem[func+1],(void **)&eloc);
-	i = snprintf(*command,128,"event_start://%s.%s?request(%p)\n",elem[func+1],eloc,ah);
+	i = snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
 	if (i >= 128) {
 		*command = realloc(*command,i+1);
-		snprintf(*command,128,"event_start://%s.%s\n",elem[func+1],eloc);
+		snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
 	}
 
 	free(elem[func+1]);
