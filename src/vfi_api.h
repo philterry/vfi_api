@@ -106,6 +106,17 @@ extern int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
 			    FILE * fp);
 
 /**
+ * vfi_teardown_file:
+ * @src: the vfi_source handle to be torn down.
+ *
+ * @vfi_teardown_file tears down i.e. frees the resources associated with
+ * a vfi_source. After this call the vfi_source handle must not be used.
+ * 
+ * Returns: 0 if successful.
+ */
+extern int vfi_teardown_file(struct vfi_source *src);
+
+/**
  * vfi_get_cmd:
  * @src: a source closure prepared with a source
  * generator, such as vfi_setup_file()

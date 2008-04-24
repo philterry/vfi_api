@@ -138,6 +138,7 @@ static int get_file(void **s, char **command)
 
 		if (ret == EOF) {
 			free(*command);
+			*command = NULL;
 			return 0;
 		}
 			
@@ -169,10 +170,17 @@ int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
 	return 0;
 }
 
+int vfi_teardown_file(struct vfi_source *src)
+{
+	free(src);
+	return 0;
+}
+
 int vfi_get_cmd(struct vfi_source *src, char **command)
 {
-	if (*command)
-		free(*command);
+	free(*command);
+	*command = NULL;
+
 	if (vfi_dev_done(src->d))
 		return 0;
 	return (src->f(src->h, command) > 0);
@@ -726,11 +734,18 @@ int vfi_get_result(struct vfi_dev *dev, char **result)
 	ret = fscanf(dev->file, "%a[^\n]\n", result);
 
 	while (ret <= 0 && ferror(dev->file)) {
+
+		free (*result);
+		*result = NULL;
 		clearerr(dev->file);
 
 		ret = vfi_poll_read(dev);
-		if (ret <= 0)
+		if (ret < 0)
 			return ret;
+		if (ret == 0) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
 
 		ret = fscanf(dev->file, "%a[^\n]\n", result);
 	}
