@@ -5,12 +5,11 @@
 
 int vfi_get_extent(char *str, long *extent)
 {
-	char *ext = strstr(str,":");
-	if (ext) {
-		if (sscanf(ext,":%x",extent) == 1) {
+	char *ext = strstr(str,"://");
+	ext = ext ? strstr(ext+strlen("://"),":") : strstr(str,":");
+	if (ext)
+		if (sscanf(ext,":%x",extent) == 1)
 			return 0;
-		}
-	}
 	return -EINVAL;
 }
 
@@ -134,6 +133,9 @@ static int get_file(void **s, char **command)
 	int ret;
 	FILE *fp = *s;
 	do {
+		if (fp == stdin)
+			printf("[VFI]$ ");
+
 		ret = fscanf(fp, " %a[^\n]", command);
 
 		if (ret == EOF) {
