@@ -10,10 +10,14 @@ struct vfi_async_handle;
  * @ah: async handle in use for this thread
  * @cmd: IO parameter, bind command on input
  *
- * This command parses the bind_create command in @cmd for event names
- * and registers them with the API handle @dev's event name list. 
+ * This command parses the bind_create command in @cmd, and inserts
+ * a closure into @ah to be run by the caller after running the cmd
+ * through the driver. If the driver command is successful the 
+ * closure will register the event names with the API handle @dev's 
+ * event name list. 
  *
- * Returns: 0 to indicate that the @cmd should be run by the driver.
+ * Returns: 0 to indicate that the @cmd should be run by the driver
+ * or a negative value to indicate that an error occurred.
  */
 extern int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
@@ -122,13 +126,34 @@ extern int quit_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
  * @cmd: IO parameter, bind command on input
  *
  * This command parses the
- * map_init://map.locaton#offset:extent?init_val(x) command in @cmd
- * for a map name and an init_value. The offset and extent of the
- * named map is then initialized with the value x.
+ * map_init://map.location#offset:extent?value(x) and the 
+ * map_init://map.location#offset:extent?pattern(type) command in @cmd
+ * for a map name and an init value or init pattern. The offset and extent of the
+ * named map is then initialized with the value x or the pattern type. 
+ * The supported pattern type is "counting".
  *
- * Returns: 1 to indicate that the @cmd should not be run by the driver.
+ * Returns: 1 to indicate that the @cmd should not be run by the driver or a negative
+ * value if an error occurred.
  */
 extern int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+
+/**
+ * map_check_pre_cmd
+ * @dev: API handle
+ * @ah: async handle in use for this thread
+ * @cmd: IO parameter, bind command on input
+ *
+ * This command parses the
+ * map_check://map.location#offset:extent?value(x) and the
+ * map_check://map.location#offset:extent?pattern(type) command in @cmd
+ * for a map name and an init value or init patter. The offset and extent of the
+ * named map is checked for the value x or the pattern type. The supported pattern 
+ * type is "counting".
+ *
+ * Returns: 1 to indicate that the @cmd should not be run by the driver or a negative
+ * value if an error occurred. If the check fails then -EBADMSG is returned.
+ */
+extern int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 #endif
 
