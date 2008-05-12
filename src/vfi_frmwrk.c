@@ -2,31 +2,88 @@
 #include <sys/mman.h>
 #include <vfi_api.h>
 #include <vfi_frmwrk.h>
+#include <assert.h>
+
+static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
+{
+	int err = 0;
+	long rslt;
+	void *payload;
+	struct {void *f; char *src_evt_name; char *dest_evt_name; char *src_loc; char *dest_loc;} *p = e;
+
+	if (vfi_get_dec_arg(result,"result",&rslt)) {
+#warning TODO: Change error number? Fatal error, reboot?
+		err = -EIO;
+		goto done;
+	}
+
+	if (rslt) {
+		err = rslt;
+		goto done;
+	}
+
+	if (err = vfi_register_event(dev,p->src_evt_name,p->src_loc))
+		goto done;
+
+#warning Change event storing? Same name on different locations gives a conflict
+#if 0
+	if (err = vfi_register_event(dev,p->dest_evt_name,p->dest_loc))
+		vfi_unregister_event(dev,p->src_evt_name, &payload);
+	MARK;printf("err = %d\n",err);
+#endif
+ done:
+	if (err) {
+		free(p->src_loc); free(p->dest_loc);
+	}
+	free(p->src_evt_name); free(p->dest_evt_name);
+	free(p);
+	vfi_set_async_handle(ah,NULL);
+	
+	assert(err <= 0);
+	return err;
+}
 
 int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
 {
 	/* bind_create://x.xl.f/d.dl.f?event_name(dn)=s.sl.f?event_name(sn) */
+	
+	int err = 0;
+	char *cmd; char *xfer; char *dest; char *src;
+	struct {void *f; char *src_evt_name; char *dest_evt_name; char *src_loc; char *dest_loc;} *e = calloc(1,sizeof(*e));
+	if (e) {
+		vfi_parse_ternary_op(*command, &cmd, &xfer, &dest, &src);
 
-	char *cmd, *xfer, *dest, *src, *sl, *dl, *sen, *den;
+		if (vfi_get_str_arg(src,"event_name",&e->src_evt_name) != 1) {
+			err = -EINVAL;
+			goto error;
+		}
 
-	vfi_parse_ternary_op(*command, &cmd, &xfer, &dest, &src);
+		if (vfi_get_str_arg(dest,"event_name",&e->dest_evt_name) != 1) {
+			err = -EINVAL;
+			goto error;
+		}
+		
+		if (err = vfi_get_location(src,&e->src_loc))
+			goto error;
+		
+		if (err = vfi_get_location(dest,&e->dest_loc))
+			goto error;
 
-	free(cmd);free(xfer);
+		e->f = bind_create_closure;		
 
-	vfi_get_str_arg(src,"event_name",&sen);
-	vfi_get_str_arg(dest,"event_name",&den);
+		free(cmd);free(xfer);free(dest);free(src);
+		free(vfi_set_async_handle(ah,e));
+		return 0;
 
-	vfi_get_location(src,&sl);
-	vfi_get_location(dest,&dl);
+	error:
+		free(cmd); free(xfer); free(dest); free(src);
+		free(e->src_evt_name); free(e->dest_evt_name); free(e->src_loc); free(e->dest_loc);
+		free(e);
+		assert(err < 0);
+		return err;
+	}
 
-	free(dest);free(src);
-
-	vfi_register_event(dev,sen,sl);
-	vfi_register_event(dev,den,dl);
-
-	free(sen);free(den);
-
-	return 0;
+	return -ENOMEM;
 }
 
 static int smb_mmap_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -88,7 +145,7 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	/* smb_create://smb.loc.f#off:ext?map_name(name) */
 	char *name;
 	char *result = NULL;
-	void **e;
+	//void **e;
 
 	if (vfi_get_str_arg(*cmd,"map_name",&name) > 0) {
 		struct {void *f; char *name; char **cmd;} *e = calloc(1,sizeof(*e));
@@ -107,17 +164,19 @@ static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 	/* event_find://name.location */
 	char *name;
 	char *location;
-	long err;
+	long rslt;
 	int rc;
 
-	rc = vfi_get_dec_arg(result,"result",&err);
-	if (!err && !rc) {
+	rc = vfi_get_dec_arg(result,"result",&rslt);
+	if (!rc && !rslt) {
 		rc = vfi_get_name_location(result,&name,&location);
 		if (!rc) {
 			vfi_register_event(dev,name,location);
 			free(name);
 		}
 	}
+
+	free(vfi_set_async_handle(ah,NULL));
 	return 0;
 }
 
@@ -139,23 +198,31 @@ static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
-		return 0;
-
-	return rslt;
+		return -EIO;
+	if (rslt)
+		return 1;
+	free(vfi_set_async_handle(ah,NULL));
+	return 0;
 }
 
 int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* location_find://name.location?wait */
+
+	int err = 0;
+
 	if (vfi_get_option(*cmd,"wait")) {
 		struct {void *f;} *e = calloc(1,sizeof(*e));
 		if (e) {
 			e->f = location_find_closure;
 			free(vfi_set_async_handle(ah,e));
 		}
+		else
+			err = -ENOMEM;
+
 	}
 
-	return 0;
+	return err;
 }
 
 static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -164,13 +231,16 @@ static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_hand
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
-		return 0;
-
-	return rslt;
+		return -EIO;
+	if (rslt)
+		return 1;
+	free(vfi_set_async_handle(ah,NULL));
+	return 0;
 }
 
 int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
+	int err = 0;
 	/* sync_find://name.location?wait */
 	if (vfi_get_option(*cmd,"wait")) {
 		struct {void *f;} *e = calloc(1,sizeof(*e));
@@ -178,9 +248,11 @@ int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 			e->f = sync_find_closure;
 			free(vfi_set_async_handle(ah,e));
 		}
+		else
+			err = -ENOMEM;
 	}
 
-	return 0;
+	return err;
 }
 
 int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
@@ -207,7 +279,8 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	char *cmd;
 	char *result = NULL;
 	char *eloc;
-	long err = 0;
+	int err = 0;
+	long rslt = 0;
 
 	vfi_parse_unary_op(*command, &cmd, &sp);
 	free(cmd);
@@ -264,55 +337,44 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 		numomaps = outmaps - events; 
 
 	if (numevnts == 0) {
-		errno = err = EINVAL;
-		perror("Pipe has 0 events\n");
+		err = -EINVAL;
 		goto done;
 	}
 
 	pipe = calloc(numpipe-numevnts,sizeof(void *));
-	if (vfi_find_func(dev,elem[func],&pipe[0])) {
-		errno = err = EINVAL;
-		perror("Function not found");
+	if (err = vfi_find_func(dev,elem[func],&pipe[0]))
 		goto done;
-	}
 
-	for (i = 0; i< numimaps;i++) {
-		if (vfi_find_map(dev,elem[i],(struct vfi_map **)&pipe[i+2])) {
-			errno = err = EINVAL;
-			perror("Map not found");
+	for (i = 0; i< numimaps;i++)
+		if (err = vfi_find_map(dev,elem[i],(struct vfi_map **)&pipe[i+2]))
 			goto done;
-		}
-	}
 
-	for (i = 0; i< numomaps;i++) {
-		if (vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[func+i+2])) {
-			errno = err = EINVAL;
-			perror("Map not found");
+	for (i = 0; i< numomaps;i++)
+		if (err = vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[func+i+2]))
 			goto done;
-		}
-	}
 	
 	pipe[1] = (void *)(((numimaps & 0xff) << 0) | ((numomaps & 0xff) << 8));
 	pipe[1] =  (void *)((unsigned int)pipe[1] ^ (unsigned int)pipe[0]);
 	
 	if (numevnts > 1) {
 		for (i = 0; i< numevnts-1;i++) {
-			if (vfi_find_event(dev,elem[func+i+1],(void **)&eloc)) {
-				errno = err = EINVAL;
-				perror("Event not found");
+			if (err = vfi_find_event(dev,elem[func+i+1],(void **)&eloc))
 				goto done;
-			}
+
 			vfi_invoke_cmd(dev,"event_chain://%s.%s?request(%p),event_name(%s)\n",
 				       elem[func+i+1],
 				       eloc,
 				       ah,
 				       elem[func+i+2]);
 			vfi_wait_async_handle(ah,&result,&e);
-			err |= vfi_get_hex_arg(result, "result", &err);
-			if (err) {
-				errno = err;
-				perror("Chain command failed");
-#warning TODO: Add code to remove chain		       			       
+			if (vfi_get_dec_arg(result,"result",&rslt)) {
+#warning TODO: Fatal error.
+				err = -EIO;
+				goto done;
+			}
+			if (rslt) {
+#warning TODO: Add code to remove chain		
+				err = rslt;
 				goto done;
 			}
 		}
@@ -321,16 +383,12 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	free(*command);
 	*command = malloc(128);
 	if (*command == NULL) {
-		errno = err = ENOMEM;
-		perror("Memory allocation failed");
+		err = -ENOMEM;
 		goto done;
 	}
 	
-	if (vfi_find_event(dev,elem[func+1],(void **)&eloc)) {
-		errno = err = EINVAL;
-		perror("Event not found");
+	if (err = vfi_find_event(dev,elem[func+1],(void **)&eloc))
 		goto done;
-	}
 	
 	i = snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
 	if (i >= 128) {
@@ -349,10 +407,9 @@ done:
 			free(pipe);
 		if (*command)
 			free(*command);
-		return 1;
 	}
 
-	return 0;
+	return err;
 }
 
 int quit_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
@@ -364,42 +421,118 @@ int quit_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 
 int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
-	/* map_init://name#o:e?init_val(x) */
+	/* map_init://name#o:e?value(x) */
+	/* map_init://name#o:e?pattern(counting) */
 	char *name;
 	char *location;
 	long long offset;
 	long extent;
 	long val;
+	char *pattern = NULL;
 	struct vfi_map *map;
 	long *mem;
-	int rc;
+	int err = 0;
 
-	rc = vfi_get_name_location(*cmd, &name, &location);
-	free(location);
-	if (rc)
-		goto out;
-	if (vfi_get_offset(*cmd,&offset))
-		goto out;
-	if (vfi_get_extent(*cmd,&extent))
-		goto out;
-	if (vfi_get_hex_arg(*cmd,"init_val",&val))
-		goto out;
-	if (vfi_find_map(dev,name,&map))
-		goto out;
-	if (map->extent < offset + extent)
-		goto out;
-
-	free(name);
+	if (err = vfi_get_name_location(*cmd, &name, &location))
+		goto done;
+	if (err = vfi_get_offset(*cmd,&offset))
+		goto done;
+	if (err = vfi_get_extent(*cmd,&extent))
+		goto done;
+	if (vfi_get_dec_arg(*cmd,"value",&val))
+		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
+			err = -EINVAL;
+			goto done;
+		}
+	if (err = vfi_find_map(dev,name,&map))
+		goto done;
+	if (map->extent < offset + extent) {
+		err = -EINVAL;
+		goto done;
+	}
 
 	mem = (long *)map->mem + offset;
 	extent = extent >> 2;
 
-	while  (extent--)
-		*mem++ = val;
+	if (pattern)
+		if (strstr(pattern,"counting")) {
+			val = 1;
+			while  (extent--)
+				*mem++ = val++;			
+		}
+		else
+			err = -EINVAL;
+		
+	else
+		while  (extent--)
+			*mem++ = val;
 
-	return 1;
-out:
+done:
+	free(location);
 	free(name);
-	return 0;
+	free(pattern);
+	return err ? err : 1;
+}
+
+int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+{
+	/* map_check://name#o:e?value(x) */
+	/* map_check://name#o:e?pattern(counting) */
+	char *name;
+	char *location;
+	long long offset;
+	long extent;
+	long val;
+	char *pattern = NULL;
+	struct vfi_map *map;
+	long *mem;
+	int err = 0;
+
+	if (err = vfi_get_name_location(*cmd, &name, &location))
+		goto done;
+	if (err = vfi_get_offset(*cmd,&offset))
+		goto done;
+	if (err = vfi_get_extent(*cmd,&extent))
+		goto done;
+	if (vfi_get_dec_arg(*cmd,"value",&val))
+		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
+			err = -EINVAL;
+			goto done;
+		}
+	if (err = vfi_find_map(dev,name,&map))
+		goto done;
+	if (map->extent < offset + extent) {
+		err = -EINVAL;
+		goto done;
+	}
+
+	mem = (long *)map->mem + offset;
+	extent = extent >> 2;
+
+	if (pattern)
+		if (strstr(pattern,"counting")) {
+			val = 1;
+			while  (extent--)
+				if (*mem++ != val++) {
+					err = -EBADMSG;
+					break;
+				}
+					
+		}
+		else
+			err = -EINVAL;
+		
+	else
+		while  (extent--)
+			if (*mem++ != val) {
+				err = -EBADMSG;
+				break;
+			}
+
+done:
+	free(location);
+	free(name);
+	free(pattern);
+	return err ? err : 1;
 }
 
