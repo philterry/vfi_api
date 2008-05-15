@@ -12,7 +12,7 @@ static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 	struct {void *f; char *src_evt_name; char *dest_evt_name; char *src_loc; char *dest_loc;} *p = e;
 
 	if (vfi_get_dec_arg(result,"result",&rslt)) {
-#warning TODO: Change error number? Fatal error, reboot?
+#warning TODO: Change error number? Fatal error!
 		err = -EIO;
 		goto done;
 	}
@@ -435,17 +435,17 @@ int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 
 	if (err = vfi_get_name_location(*cmd, &name, &location))
 		goto done;
-	if (err = vfi_get_offset(*cmd,&offset))
-		goto done;
-	if (err = vfi_get_extent(*cmd,&extent))
-		goto done;
-	if (vfi_get_dec_arg(*cmd,"value",&val))
+	if (vfi_get_offset(*cmd,&offset)) /* Offset defaults to 0 */
+		offset = 0;
+	if (vfi_get_hex_arg(*cmd,"value",&val))
 		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
 			err = -EINVAL;
 			goto done;
 		}
 	if (err = vfi_find_map(dev,name,&map))
 		goto done;
+	if (vfi_get_extent(*cmd,&extent)) /* Extent defaults to map's extent */
+		extent = map->extent;
 	if (map->extent < offset + extent) {
 		err = -EINVAL;
 		goto done;
@@ -490,17 +490,17 @@ int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 
 	if (err = vfi_get_name_location(*cmd, &name, &location))
 		goto done;
-	if (err = vfi_get_offset(*cmd,&offset))
-		goto done;
-	if (err = vfi_get_extent(*cmd,&extent))
-		goto done;
-	if (vfi_get_dec_arg(*cmd,"value",&val))
+	if (vfi_get_offset(*cmd,&offset)) /* Offset defaults to 0 */
+		offset = 0;
+	if (vfi_get_hex_arg(*cmd,"value",&val))
 		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
 			err = -EINVAL;
 			goto done;
 		}
 	if (err = vfi_find_map(dev,name,&map))
 		goto done;
+	if (vfi_get_extent(*cmd,&extent)) /* Extent defaults to map's extent */
+		extent = map->extent;
 	if (map->extent < offset + extent) {
 		err = -EINVAL;
 		goto done;
@@ -533,6 +533,9 @@ done:
 	free(location);
 	free(name);
 	free(pattern);
+	if (err)
+		printf("%s: Map has ERRORS \n", __func__);
+	else
+		printf("%s: Map is OK\n", __func__);
 	return err ? err : 1;
 }
-
