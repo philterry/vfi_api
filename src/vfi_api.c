@@ -1,7 +1,11 @@
 #include <vfi_api.h>
+#include <vfi_log.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <semaphore.h>
+
+#define MY_ERROR VFI_DBG_DEFAULT
+#define MY_DEBUG (VFI_DBG_EVERYONE | VFI_DBG_EVERYTHING | VFI_LOG_DEBUG)
 
 int vfi_get_extent(char *str, long *extent)
 {
@@ -10,7 +14,7 @@ int vfi_get_extent(char *str, long *extent)
 	if (ext)
 		if (sscanf(ext,":%x",extent) == 1)
 			return 0;
-	return -EINVAL;
+	return VFI_RESULT(-EINVAL);
 }
 
 int vfi_get_offset(char *str, long long *offset)
@@ -21,7 +25,7 @@ int vfi_get_offset(char *str, long long *offset)
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return VFI_RESULT(-EINVAL);
 }
 
 int vfi_get_location(char *str, char **loc)
@@ -34,7 +38,7 @@ int vfi_get_location(char *str, char **loc)
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return VFI_RESULT(-EINVAL);
 }
 
 int vfi_get_name_location(char *str, char **name, char **loc)
@@ -47,7 +51,7 @@ int vfi_get_name_location(char *str, char **name, char **loc)
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return VFI_RESULT(-EINVAL);
 }
 
 int vfi_parse_ternary_op(char *str, char **cmd, char **xfer, char **dest, char **src)
@@ -160,10 +164,10 @@ int vfi_setup_file(struct vfi_dev *dev, struct vfi_source **src,
 	*src = h;
 
 	if (fp == NULL)
-		return -EINVAL;
+		return VFI_RESULT(-EINVAL);
 
 	if (h == NULL)
-		return -ENOMEM;
+		return VFI_RESULT(-ENOMEM);
 
 	h->f = get_file;
 	h->d = dev;
@@ -192,7 +196,7 @@ int vfi_alloc_map(struct vfi_map **mapp, char *name)
 {
 	struct vfi_map *map = calloc(1,sizeof(*map)+strlen(name)+1);
 	if (map == NULL)
-		return -ENOMEM;
+		return VFI_RESULT(-ENOMEM);
 
 	strcpy(map->name_buf, name);
 	map->name = map->name_buf;
@@ -216,7 +220,7 @@ int vfi_find_npc(struct vfi_npc *elems, char *name, struct vfi_npc **npc)
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return VFI_RESULT(-EINVAL);
 }
 
 /* Generic register an NPC in a list with a name. */
@@ -224,7 +228,7 @@ int vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 {
 	struct vfi_npc *l;
 	if (!vfi_find_npc(*elems, name, &l))
-		return -EINVAL;
+		return VFI_RESULT(-EINVAL);
 	l = calloc(1, sizeof(*l) + strlen(name) + 1);
 	l->size = strlen(name);
 	strcpy(l->b, name);
@@ -251,7 +255,7 @@ int vfi_unregister_npc(struct vfi_npc **elems, char *name, void **e)
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return (-EINVAL);
 }
 
 /* Store three lists in dev, funcs, maps and events */
@@ -259,7 +263,7 @@ int vfi_find_func(struct vfi_dev *dev, char *name, void **e)
 {
 	struct vfi_npc *npc;
 	if (vfi_find_npc(dev->funcs, name, &npc))
-	    return -EINVAL;
+		return VFI_RESULT(-EINVAL);
 
 	*e = npc->e;
 	return 0;
@@ -269,7 +273,7 @@ int vfi_find_map(struct vfi_dev *dev, char *name, struct vfi_map **map)
 {
 	struct vfi_npc *npc;
 	if (vfi_find_npc(dev->maps, name,&npc))
-		return -EINVAL;
+		return VFI_RESULT(-EINVAL);
 
 	*map = npc->e;
 	return 0;
@@ -279,7 +283,7 @@ int vfi_find_event(struct vfi_dev *dev, char *name, void **e)
 {
 	struct vfi_npc *npc;
 	if (vfi_find_npc(dev->events, name, &npc))
-		return -EINVAL;
+		return VFI_RESULT(-EINVAL);
 	
 	*e = npc->e;
 	return 0;
@@ -363,7 +367,7 @@ int vfi_register_cmd(struct vfi_cmd_elem **commands, char *name,
 	int len = strlen(name);
 	c = calloc(1, sizeof(*c) + len + 1);
 	if ( c == NULL)
-		return -ENOMEM;
+		return VFI_RESULT(-ENOMEM);
 
 	strcpy(c->b, name);
 	c->cmd = c->b;
@@ -544,7 +548,7 @@ int vfi_post_async_handle(struct vfi_dev *dev)
 
 	ret = vfi_get_result(dev, &result);
 	if (ret <= 0)
-		return ret;
+		return VFI_RESULT(ret);
 
 	ret = vfi_get_hex_arg(result, "reply", (long *)&handle);
 
@@ -556,7 +560,7 @@ int vfi_post_async_handle(struct vfi_dev *dev)
 
 	ret = -EINVAL;
 	free(result);
-	return ret;
+	return VFI_RESULT(ret);
 }
 
 /*
@@ -607,7 +611,7 @@ int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 
 	*device = dev;
 	if (dev == NULL)
-		return -ENOMEM;
+		return VFI_RESULT(-ENOMEM);
 
 	if (dev_name == NULL)
 		dev_name = "/dev/vfi";
@@ -618,7 +622,7 @@ int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 	if (dev->fd < 0) {
 		perror(dev_name);
 		free(dev);
-		return (-ENODEV);
+		return VFI_RESULT(-ENODEV);
 	}
 
 	dev->file = fdopen(dev->fd, "r+");
@@ -660,7 +664,7 @@ int vfi_get_option(char *str, char *name)
 	return 0;
 }
 
-/* Get a str valued options opt_name(opt_value). Return -1 is the
+/* Get a str valued options opt_name(opt_value). Return -1 if the
  * option is not present, 0 if present but with no value, 1 if a value
  * is present. */
 int vfi_get_str_arg(char *str, char *name, char **val)
@@ -680,7 +684,7 @@ int vfi_get_str_arg(char *str, char *name, char **val)
 			return 0;
 		}
 
-	return -1;
+	return VFI_RESULT(-1);
 }
 
 /* Retrieve a numeric valued option in various bases. */
@@ -694,7 +698,7 @@ int vfi_get_long_arg(char *str, char *name, long *value, int base)
 		free(val);
 		return 0;
 	}
-	return -1;
+	return VFI_RESULT(-1);
 }
 
 /* 
@@ -743,11 +747,9 @@ int vfi_get_result(struct vfi_dev *dev, char **result)
 
 		ret = vfi_poll_read(dev);
 		if (ret < 0)
-			return ret;
-		if (ret == 0) {
-			errno = ETIMEDOUT;
-			return -1;
-		}
+			return VFI_RESULT(ret);
+		if (ret == 0)
+			return VFI_RESULT(-ETIMEDOUT);
 
 		ret = fscanf(dev->file, "%a[^\n]\n", result);
 	}
@@ -779,7 +781,7 @@ int vfi_invoke_cmd(struct vfi_dev *dev, char *f, ...)
 	ret = vfi_invoke_cmd_ap(dev, f, ap);
 	va_end(ap);
 
-	return ret;
+	return VFI_RESULT(ret);
 }
 
 int vfi_invoke_cmd_str(struct vfi_dev *dev, char *cmd, int size)
@@ -791,7 +793,7 @@ int vfi_invoke_cmd_str(struct vfi_dev *dev, char *cmd, int size)
 		ret = fprintf(dev->file, "%s\n", cmd);
 
 	fflush(dev->file);
-	return ret;
+	return VFI_RESULT(ret);
 
 }
 
@@ -813,10 +815,10 @@ int vfi_do_cmd_ap(struct vfi_dev *dev, char **result, char *f, va_list ap)
 	int ret;
 	ret = vfi_invoke_cmd_ap(dev, f, ap);
 	if (ret < 0)
-		return ret;
+		return VFI_RESULT(ret);
 
 	ret = vfi_get_result(dev, result);
-	return ret;
+	return VFI_RESULT(ret);
 }
 
 int vfi_do_cmd(struct vfi_dev *dev, char **result, char *f, ...)
@@ -827,7 +829,7 @@ int vfi_do_cmd(struct vfi_dev *dev, char **result, char *f, ...)
 	va_start(ap, f);
 	ret = vfi_do_cmd_ap(dev, result, f, ap);
 	va_end(ap);
-	return ret;
+	return VFI_RESULT(ret);
 }
 
 int vfi_do_cmd_str(struct vfi_dev *dev, char **result, char *cmd, int size)
@@ -835,9 +837,9 @@ int vfi_do_cmd_str(struct vfi_dev *dev, char **result, char *cmd, int size)
 	int ret;
 	ret = vfi_invoke_cmd_str(dev, cmd, size);
 	if (ret < 0)
-		return ret;
+		return VFI_RESULT(ret);
 	ret = vfi_get_result(dev, result);
-	return ret;
+	return VFI_RESULT(ret);
 }
 
 /*********************************************************************
@@ -853,7 +855,7 @@ int vfi_get_eventfd(int count)
 	/* Initialize event fd */
 	if ((afd = eventfd(count)) == -1) {
 		perror("eventfd");
-		return -1;
+		return VFI_RESULT(-1);
 	}
 	fcntl(afd, F_SETFL, fcntl(afd, F_GETFL, 0) | O_NONBLOCK);
 

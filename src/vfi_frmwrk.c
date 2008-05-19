@@ -2,7 +2,11 @@
 #include <sys/mman.h>
 #include <vfi_api.h>
 #include <vfi_frmwrk.h>
+#include <vfi_log.h>
 #include <assert.h>
+
+#define MY_ERROR VFI_DBG_DEFAULT
+#define MY_DEBUG (VFI_DBG_EVERYONE | VFI_DBG_EVERYTHING | VFI_LOG_DEBUG)
 
 static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
@@ -40,7 +44,7 @@ static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 	vfi_set_async_handle(ah,NULL);
 	
 	assert(err <= 0);
-	return err;
+	return VFI_RESULT(err);
 }
 
 int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
@@ -80,10 +84,10 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 		free(e->src_evt_name); free(e->dest_evt_name); free(e->src_loc); free(e->dest_loc);
 		free(e);
 		assert(err < 0);
-		return err;
+		return VFI_RESULT(err);
 	}
 
-	return -ENOMEM;
+	return VFI_RESULT(-ENOMEM);
 }
 
 static int smb_mmap_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -120,7 +124,7 @@ int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 		}
 		free(name);
 	}
-	return err;
+	return VFI_RESULT(err);
 }
 
 static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -198,7 +202,7 @@ static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
-		return -EIO;
+		return VFI_RESULT(-EIO);
 	if (rslt)
 		return 1;
 	free(vfi_set_async_handle(ah,NULL));
@@ -222,7 +226,7 @@ int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char
 
 	}
 
-	return err;
+	return VFI_RESULT(err);
 }
 
 static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -231,7 +235,7 @@ static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_hand
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
 	if (rc)
-		return -EIO;
+		return VFI_RESULT(-EIO);
 	if (rslt)
 		return 1;
 	free(vfi_set_async_handle(ah,NULL));
@@ -252,7 +256,7 @@ int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 			err = -ENOMEM;
 	}
 
-	return err;
+	return VFI_RESULT(err);
 }
 
 int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
@@ -409,7 +413,7 @@ done:
 			free(*command);
 	}
 
-	return err;
+	return VFI_RESULT(err);
 }
 
 int quit_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
@@ -471,7 +475,9 @@ done:
 	free(location);
 	free(name);
 	free(pattern);
-	return err ? err : 1;
+	if (err)
+		return VFI_RESULT(err);
+	return 1;
 }
 
 int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
@@ -533,9 +539,11 @@ done:
 	free(location);
 	free(name);
 	free(pattern);
-	if (err)
+	if (err) {
 		printf("%s: Map has ERRORS \n", __func__);
+		return VFI_RESULT(err);
+	}
 	else
 		printf("%s: Map is OK\n", __func__);
-	return err ? err : 1;
+	return 1;
 }
