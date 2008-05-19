@@ -16,18 +16,21 @@ static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 	struct {void *f; char *src_evt_name; char *dest_evt_name; char *src_loc; char *dest_loc;} *p = e;
 
 	if (vfi_get_dec_arg(result,"result",&rslt)) {
-#warning TODO: Change error number? Fatal error!
 		err = -EIO;
+		vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
 		goto done;
 	}
 
 	if (rslt) {
 		err = rslt;
+		vfi_log(VFI_LOG_ERR, "%s: Command failed with error %d (%s)", __func__, err, result);
 		goto done;
 	}
 
-	if (err = vfi_register_event(dev,p->src_evt_name,p->src_loc))
+	if (err = vfi_register_event(dev,p->src_evt_name,p->src_loc)) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to register event. Error is %d", __func__, err);
 		goto done;
+	}
 
 #warning Change event storing? Same name on different locations gives a conflict
 #if 0
@@ -59,19 +62,25 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 
 		if (vfi_get_str_arg(src,"event_name",&e->src_evt_name) != 1) {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Source event name not specified (%s).", __func__, *cmd);
 			goto error;
 		}
 
 		if (vfi_get_str_arg(dest,"event_name",&e->dest_evt_name) != 1) {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Destination event name not specified (%s).", __func__, *cmd);
 			goto error;
 		}
 		
-		if (err = vfi_get_location(src,&e->src_loc))
+		if (err = vfi_get_location(src,&e->src_loc)) {
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Source location not specified (%s).", __func__, *cmd);
 			goto error;
+		}
 		
-		if (err = vfi_get_location(dest,&e->dest_loc))
+		if (err = vfi_get_location(dest,&e->dest_loc)) {
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Destination location not specified (%s).", __func__, *cmd);
 			goto error;
+		}
 
 		e->f = bind_create_closure;		
 
@@ -87,6 +96,7 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 		return VFI_RESULT(err);
 	}
 
+	vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, -ENOMEM);
 	return VFI_RESULT(-ENOMEM);
 }
 
@@ -114,11 +124,11 @@ int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 	if (vfi_get_str_arg(*cmd,"map_name",&name) > 0) {
 		struct vfi_map *e;
 		if (err = vfi_alloc_map(&e,name))
-			printf("Failed to allocate map\n");
+			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate map. Error is %d", __func__, err);
 		else {
 			e->f = smb_mmap_closure;
 			if (err = vfi_get_extent(*cmd,&e->extent))
-				printf("Extent not found\n");
+				vfi_log(VFI_LOG_ERR, "%s: Parse error. Extent not found. Error is %d", __func__, err);
 			else
 				free(vfi_set_async_handle(ah,e));
 		}
@@ -201,8 +211,10 @@ static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_
 	long rslt;
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
-	if (rc)
+	if (rc) {
+		vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
 		return VFI_RESULT(-EIO);
+	}
 	if (rslt)
 		return 1;
 	free(vfi_set_async_handle(ah,NULL));
@@ -221,8 +233,11 @@ int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char
 			e->f = location_find_closure;
 			free(vfi_set_async_handle(ah,e));
 		}
-		else
+		else {
 			err = -ENOMEM;
+			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);			
+
+		}
 
 	}
 
@@ -234,8 +249,10 @@ static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_hand
 	long rslt;
 	int rc;
 	rc = vfi_get_dec_arg(result,"result",&rslt);
-	if (rc)
+	if (rc) {
+		vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
 		return VFI_RESULT(-EIO);
+	}
 	if (rslt)
 		return 1;
 	free(vfi_set_async_handle(ah,NULL));
@@ -252,8 +269,11 @@ int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 			e->f = sync_find_closure;
 			free(vfi_set_async_handle(ah,e));
 		}
-		else
+		else {
 			err = -ENOMEM;
+			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
+
+		}
 	}
 
 	return VFI_RESULT(err);
@@ -342,28 +362,42 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 
 	if (numevnts == 0) {
 		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: 0 events specified. Error is %d", __func__, elem[i], err);
 		goto done;
 	}
 
 	pipe = calloc(numpipe-numevnts,sizeof(void *));
-	if (err = vfi_find_func(dev,elem[func],&pipe[0]))
+	if (!pipe) {
+		err = -ENOMEM;
+		vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
+	}
+
+	if (err = vfi_find_func(dev,elem[func],&pipe[0])) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup function %s. Error is %d", __func__, elem[func], err);
 		goto done;
+	}
 
 	for (i = 0; i< numimaps;i++)
-		if (err = vfi_find_map(dev,elem[i],(struct vfi_map **)&pipe[i+2]))
+		if (err = vfi_find_map(dev,elem[i],(struct vfi_map **)&pipe[i+2])) {
+			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[i], err);
 			goto done;
+		}
 
 	for (i = 0; i< numomaps;i++)
-		if (err = vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[func+i+2]))
+		if (err = vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[func+i+2])) {
+			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[events+i+1], err);
 			goto done;
+		}
 	
 	pipe[1] = (void *)(((numimaps & 0xff) << 0) | ((numomaps & 0xff) << 8));
 	pipe[1] =  (void *)((unsigned int)pipe[1] ^ (unsigned int)pipe[0]);
 	
 	if (numevnts > 1) {
 		for (i = 0; i< numevnts-1;i++) {
-			if (err = vfi_find_event(dev,elem[func+i+1],(void **)&eloc))
+			if (err = vfi_find_event(dev,elem[func+i+1],(void **)&eloc)) {
+				vfi_log(VFI_LOG_ERR, "%s: Failed to lookup event %s. Error is %d", __func__, elem[func+i+1], err);
 				goto done;
+			}
 
 			vfi_invoke_cmd(dev,"event_chain://%s.%s?request(%p),event_name(%s)\n",
 				       elem[func+i+1],
@@ -372,13 +406,14 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 				       elem[func+i+2]);
 			vfi_wait_async_handle(ah,&result,&e);
 			if (vfi_get_dec_arg(result,"result",&rslt)) {
-#warning TODO: Fatal error.
 				err = -EIO;
+				vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
 				goto done;
 			}
 			if (rslt) {
 #warning TODO: Add code to remove chain		
 				err = rslt;
+				vfi_log(VFI_LOG_ERR, "%s: Command failed with error %ld (%s)", __func__, rslt, result);
 				goto done;
 			}
 		}
@@ -388,11 +423,14 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	*command = malloc(128);
 	if (*command == NULL) {
 		err = -ENOMEM;
+		vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
 		goto done;
 	}
 	
-	if (err = vfi_find_event(dev,elem[func+1],(void **)&eloc))
+	if (err = vfi_find_event(dev,elem[func+1],(void **)&eloc)) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup event %s. Error is %d", __func__, elem[func+1], err);
 		goto done;
+	}
 	
 	i = snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
 	if (i >= 128) {
@@ -437,21 +475,27 @@ int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 	long *mem;
 	int err = 0;
 
-	if (err = vfi_get_name_location(*cmd, &name, &location))
+	if (err = vfi_get_name_location(*cmd, &name, &location)) {
+		vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Name and location not found (%s).", __func__, *cmd);
 		goto done;
+	}
 	if (vfi_get_offset(*cmd,&offset)) /* Offset defaults to 0 */
 		offset = 0;
 	if (vfi_get_hex_arg(*cmd,"value",&val))
 		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Value or pattern not found (%s)", __func__, *cmd);
 			goto done;
 		}
-	if (err = vfi_find_map(dev,name,&map))
+	if (err = vfi_find_map(dev,name,&map)) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup map %s. Error is %d", __func__, name, err);		
 		goto done;
+	}
 	if (vfi_get_extent(*cmd,&extent)) /* Extent defaults to map's extent */
 		extent = map->extent;
 	if (map->extent < offset + extent) {
 		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Offset and extent combination larger than maps extent. Error is %d", __func__, err);
 		goto done;
 	}
 
@@ -464,8 +508,10 @@ int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 			while  (extent--)
 				*mem++ = val++;			
 		}
-		else
+		else {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Illegal pattern (%s). Error is %d", __func__, pattern, err);
+		}
 		
 	else
 		while  (extent--)
@@ -494,21 +540,27 @@ int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 	long *mem;
 	int err = 0;
 
-	if (err = vfi_get_name_location(*cmd, &name, &location))
+	if (err = vfi_get_name_location(*cmd, &name, &location)) {
+		vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Name and location not found (%s).", __func__, *cmd);
 		goto done;
+	}
 	if (vfi_get_offset(*cmd,&offset)) /* Offset defaults to 0 */
 		offset = 0;
 	if (vfi_get_hex_arg(*cmd,"value",&val))
 		if (vfi_get_str_arg(*cmd,"pattern",&pattern) != 1) {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Error parsing command string. Value or pattern not found (%s)", __func__, *cmd);
 			goto done;
 		}
-	if (err = vfi_find_map(dev,name,&map))
+	if (err = vfi_find_map(dev,name,&map)) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup map %s. Error is %d", __func__, name, err);		
 		goto done;
+	}
 	if (vfi_get_extent(*cmd,&extent)) /* Extent defaults to map's extent */
 		extent = map->extent;
 	if (map->extent < offset + extent) {
 		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Offset and extent combination larger than maps extent. Error is %d", __func__, err);
 		goto done;
 	}
 
@@ -521,17 +573,21 @@ int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 			while  (extent--)
 				if (*mem++ != val++) {
 					err = -EBADMSG;
+					vfi_log(VFI_LOG_ERR, "%s: Counting pattern has errors", __func__);
 					break;
 				}
 					
 		}
-		else
+		else {
 			err = -EINVAL;
+			vfi_log(VFI_LOG_ERR, "%s: Illegal pattern (%s). Error is %d", __func__, pattern, err);
+		}
 		
 	else
 		while  (extent--)
 			if (*mem++ != val) {
 				err = -EBADMSG;
+				vfi_log(VFI_LOG_ERR, "%s: Repeating value pattern has errors", __func__);
 				break;
 			}
 
@@ -540,10 +596,10 @@ done:
 	free(name);
 	free(pattern);
 	if (err) {
-		printf("%s: Map has ERRORS \n", __func__);
+		VFI_DEBUG (MY_DEBUG, "%s: Map has ERRORS\n", __func__);
 		return VFI_RESULT(err);
 	}
 	else
-		printf("%s: Map is OK\n", __func__);
+		VFI_DEBUG (MY_DEBUG, "%s: Map is OK\n", __func__);
 	return 1;
 }
