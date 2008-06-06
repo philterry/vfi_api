@@ -236,7 +236,6 @@ int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char
 		else {
 			err = -ENOMEM;
 			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);			
-
 		}
 
 	}
@@ -296,6 +295,8 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	int numimaps = 0;
 	int numomaps = 0;
 	int numevnts = 0;
+	int numin = 0;
+	int numout = 0;
 	void **pipe = NULL;
 	char *elem[20];
 	int elem_cnt = 0;
@@ -372,8 +373,22 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 		vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
 	}
 
-	if (err = vfi_find_func(dev,elem[func],&pipe[0])) {
+	if (err = vfi_find_func(dev,elem[func],&pipe[0], &numin, &numout)) {
 		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup function %s. Error is %d", __func__, elem[func], err);
+		goto done;
+	}
+
+	if (numin >= 0 && numin != numimaps) {
+		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Number of input maps (%d) differs from expected (%d) for function %s",
+			__func__, numimaps, numin, elem[func]);
+		goto done;
+	}
+
+	if (numout >= 0 && numout != numomaps) {
+		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Number of output maps (%d) differs from expected (%d) for function %s",
+			__func__, numomaps, numout, elem[func]);
 		goto done;
 	}
 
@@ -388,10 +403,10 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[events+i+1], err);
 			goto done;
 		}
-	
+
 	pipe[1] = (void *)(((numimaps & 0xff) << 0) | ((numomaps & 0xff) << 8));
 	pipe[1] =  (void *)((unsigned int)pipe[1] ^ (unsigned int)pipe[0]);
-	
+
 	if (numevnts > 1) {
 		for (i = 0; i< numevnts-1;i++) {
 			if (err = vfi_find_event(dev,elem[func+i+1],(void **)&eloc)) {

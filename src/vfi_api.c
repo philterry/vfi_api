@@ -259,14 +259,19 @@ int vfi_unregister_npc(struct vfi_npc **elems, char *name, void **e)
 }
 
 /* Store three lists in dev, funcs, maps and events */
-int vfi_find_func(struct vfi_dev *dev, char *name, void **e)
+int vfi_find_func(struct vfi_dev *dev, char *name, void **func, int *numin, int *numout)
 {
 	struct vfi_npc *npc;
+	struct {void *func; int numin; int numout;} *e;
+
 	if (vfi_find_npc(dev->funcs, name, &npc))
 		return VFI_RESULT(-EINVAL);
 
-	*e = npc->e;
-	return 0;
+	e = npc->e;
+	*func = e->func;
+	*numin = e->numin;
+	*numout = e->numout;
+	return VFI_RESULT(0);
 }
 
 int vfi_find_map(struct vfi_dev *dev, char *name, struct vfi_map **map)
@@ -295,9 +300,24 @@ int vfi_register_map(struct vfi_dev *dev, char *name, struct vfi_map *e)
 	return vfi_register_npc(&dev->maps, name, e);
 }
 
-int vfi_register_func(struct vfi_dev *dev, char *name, void *e)
+int vfi_register_func(struct vfi_dev *dev, char *name, void *func, int numin, int numout)
 {
-	return vfi_register_npc(&dev->funcs, name, e);
+	int ret = -ENOMEM;
+	struct {void *func; int numin; int numout;} *e = calloc(1,sizeof(*e));
+	if (e) {
+		e->func = func;
+		e->numin = numin;
+		e->numout = numout;
+		if (ret = vfi_register_npc(&dev->funcs, name, e)) {
+			free(e);
+		        vfi_log(VFI_LOG_ERR, "%s: Failed to register function. Error is %d", __func__, ret);
+		}
+		
+		return VFI_RESULT(ret);
+	}
+	
+	vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, ret);
+	return VFI_RESULT(ret);
 }
 
 int vfi_register_event(struct vfi_dev *dev, char *name, void *e)
@@ -310,9 +330,23 @@ int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **e)
 	return vfi_unregister_npc(&dev->maps,name,(void **)e);
 }
 
-int vfi_unregister_func(struct vfi_dev *dev, char *name, void **e)
+int vfi_unregister_func(struct vfi_dev *dev, char *name, void **func, int *numin, int *numout)
 {
-	return vfi_unregister_npc(&dev->funcs,name,e);
+	int ret;
+	struct {void *func; int numin; int numout;} *e;
+
+	if (ret = vfi_unregister_npc(&dev->funcs,name,(void *)&e))
+		return VFI_RESULT(ret);
+
+	if (func)
+		*func = e->func;
+	if (numin)
+		*numin = e->numin;
+	if (numout)
+		*numout = e->numout;
+
+	free(e);
+	return VFI_RESULT(0);
 }
 
 int vfi_unregister_event(struct vfi_dev *dev, char *name, void **e)

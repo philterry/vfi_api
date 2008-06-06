@@ -441,27 +441,31 @@ extern int vfi_unregister_npc(struct vfi_npc **list, char *name, void **e);
  * vfi_register_func
  * @dev: the #vfi_dev handle with the list head of functions
  * @name: the name of the command function to be added
- * @e: the closure representing the command function
+ * @func: pointer representing the command function
+ * @numin: number of input buffers expected by the function
+ * @numout: number of output buffers expected by the function
  *
  * This function adds a closure representing an API command to the
  * @dev's list of functions.
  *
  * Returns: 0 on success otherwise error.
  */
-extern int vfi_register_func(struct vfi_dev *dev, char *name, void *e);
+extern int vfi_register_func(struct vfi_dev *dev, char *name, void *func, int numin, int numout);
 
 /**
  * vfi_unregister_func
  * @dev: the #vfi_dev handle with the list head of functions
  * @name: the name of the command function to be added
- * @e: returns the closure of the deleted function
+ * @func: returns the deleted function. Optional, may be NULL.
+ * @numin: returns the number of input buffers expected by the function. Optional, may be NULL.
+ * @numout: returns the number of output buffers expected by the function. Optional, may be NULL;
  *
  * This function deletes a closure representing an API command from the
  * @dev's list of functions.
  *
  * Returns: 0 on success otherwise error.
  */
-extern int vfi_unregister_func(struct vfi_dev *dev, char *name, void **e);
+extern int vfi_unregister_func(struct vfi_dev *dev, char *name, void **func, int *numin, int *numout);
 
 /**
  * vfi_map
@@ -560,13 +564,15 @@ extern int vfi_find_npc(struct vfi_npc *list, char *name, struct vfi_npc **npc);
  * vfi_find_func
  * @dev: the #vfi_dev handle whose function list is to be searched
  * @name: the name of the function closure being searched for.
- * @e: returns the closure if found
+ * @func: returns the function pointer if found.
+ * @numin: returns the number of input buffers if found.
+ * @numout: return the number of output buffers if found.
  *
  * This function searches the function list of named closures whose head is held in @dev
  *
  * Returns: 0 on success otherwise error
  */
-extern int vfi_find_func(struct vfi_dev *dev, char *name, void **e);
+extern int vfi_find_func(struct vfi_dev *dev, char *name, void **func, int *numin, int *numout);
 
 /**
  * vfi_find_map
