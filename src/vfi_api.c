@@ -643,7 +643,6 @@ int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 {
 	struct vfi_dev *dev = calloc(1,sizeof(struct vfi_dev));
 
-	*device = dev;
 	if (dev == NULL)
 		return VFI_RESULT(-ENOMEM);
 
@@ -654,13 +653,13 @@ int vfi_open(struct vfi_dev **device, char *dev_name, int timeout)
 	dev->fd = open(dev_name, (O_NONBLOCK | O_RDWR));
 
 	if (dev->fd < 0) {
-		perror(dev_name);
 		free(dev);
 		return VFI_RESULT(-ENODEV);
 	}
 
 	dev->file = fdopen(dev->fd, "r+");
 
+	*device = dev;
 	return 0;
 }
 
