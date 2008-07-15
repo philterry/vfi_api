@@ -22,17 +22,17 @@ struct vfi_async_handle;
 extern int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 /**
- * smb_mmap_pre_cmd
+ * mmap_create_pre_cmd
  * @dev: API handle
  * @ah: async handle in use for this thread
  * @cmd: IO parameter, bind command on input
  *
- * This command parses the smb_mmap command in @cmd for map names
+ * This command parses the mmap_create command in @cmd for map names
  * and registers them with the API handle @dev's map name list. 
  *
  * Returns: 0 to indicate that the @cmd should be run by the driver.
  */
-extern int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+extern int mmap_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 /**
  * smb_create_pre_cmd

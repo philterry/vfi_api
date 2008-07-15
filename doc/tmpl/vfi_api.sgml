@@ -54,6 +54,15 @@ vfi_frmwrk
 @Returns: 
 
 
+<!-- ##### FUNCTION vfi_get_eventfd ##### -->
+<para>
+
+</para>
+
+@Varargs: 
+@Returns: 
+
+
 <!-- ##### FUNCTION vfi_setup_file ##### -->
 <para>
 
@@ -62,6 +71,15 @@ vfi_frmwrk
 @dev: 
 @src: 
 @fp: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_teardown_file ##### -->
+<para>
+
+</para>
+
+@src: 
 @Returns: 
 
 
@@ -220,6 +238,36 @@ vfi_frmwrk
 @Returns: 
 
 
+<!-- ##### FUNCTION vfi_unregister_cmd ##### -->
+<para>
+
+</para>
+
+@list: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_post_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_unregister_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@name: 
+@Returns: 
+
+
 <!-- ##### STRUCT vfi_npc ##### -->
 <para>
 
@@ -255,7 +303,9 @@ vfi_frmwrk
 
 @dev: 
 @name: 
-@e: 
+@func: 
+@numin: 
+@numout: 
 @Returns: 
 
 
@@ -266,7 +316,9 @@ vfi_frmwrk
 
 @dev: 
 @name: 
-@e: 
+@func: 
+@numin: 
+@numout: 
 @Returns: 
 
 
@@ -342,7 +394,9 @@ vfi_frmwrk
 
 @dev: 
 @name: 
-@e: 
+@func: 
+@numin: 
+@numout: 
 @Returns: 
 
 

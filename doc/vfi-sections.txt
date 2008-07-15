@@ -6,9 +6,11 @@ vfi_dev
 vfi_open
 vfi_close
 vfi_fileno
+vfi_get_eventfd
 <SUBSECTION>
 vfi_source
 vfi_setup_file
+vfi_teardown_file
 vfi_get_cmd
 <SUBSECTION>
 vfi_async_handle
@@ -27,6 +29,9 @@ vfi_find_post_cmd
 vfi_register_cmd
 vfi_register_pre_cmd
 vfi_register_post_cmd
+vfi_unregister_cmd
+vfi_unregister_post_cmd
+vfi_unregister_pre_cmd
 <SUBSECTION>
 vfi_npc
 vfi_register_npc
@@ -83,7 +88,6 @@ syscall
 vfi_dev
 vfi_async_handle
 bind_create_pre_cmd
-smb_mmap_pre_cmd
 smb_create_pre_cmd
 event_find_pre_cmd
 sync_find_pre_cmd
@@ -91,5 +95,7 @@ map_init_pre_cmd
 pipe_pre_cmd
 quit_pre_cmd
 location_find_pre_cmd
+map_check_pre_cmd
+mmap_create_pre_cmd
 </SECTION>
 

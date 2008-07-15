@@ -412,6 +412,29 @@ int vfi_register_cmd(struct vfi_cmd_elem **commands, char *name,
 	return 0;
 }
 
+int vfi_unregister_cmd(struct vfi_cmd_elem **commands, char *name)
+{
+	struct vfi_cmd_elem *cp = *commands;
+	struct vfi_cmd_elem *pp = NULL;
+	while (cp) {
+		if (strcmp(cp->cmd, name)) {
+			pp = cp;
+			cp = cp->next;
+		}
+		else
+			break;
+	}
+
+	if (cp) {
+		if (pp) 
+			pp->next = cp->next;
+		else 
+			*commands = cp->next;
+		free(cp);
+	}		
+	return 0;
+}
+
 int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
 			   int (*f) (struct vfi_dev *,
 					struct vfi_async_handle *, char **))
@@ -419,11 +442,21 @@ int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
 	return vfi_register_cmd(&dev->pre_commands, name,f);
 }
 
+int vfi_unregister_pre_cmd(struct vfi_dev *dev, char *name)
+{
+	return vfi_unregister_cmd(&dev->pre_commands, name);
+}
+
 int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
 			    int (*f) (struct vfi_dev *,
 					 struct vfi_async_handle *, char **))
 {
 	return vfi_register_cmd(&dev->post_commands, name,f);
+}
+
+int vfi_unregister_post_cmd(struct vfi_dev *dev, char *name)
+{
+	return vfi_unregister_cmd(&dev->post_commands, name);
 }
 
 /*
@@ -605,9 +638,9 @@ int vfi_post_async_handle(struct vfi_dev *dev)
  * command.
  *
  * Consider the mmap requirement. We can have a pre command which
- * intercepts a driver smb_mmap:// command and causes an smb_create
+ * intercepts a driver mmap_create:// command and causes an mmap_create
  * post command to be executed once the driver has returned the result
- * of the driver's smb_mmap.
+ * of the driver's mmap_create.
  */
 int vfi_do_post_cmd(void *e)
 {

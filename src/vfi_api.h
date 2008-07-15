@@ -365,6 +365,17 @@ extern int vfi_register_cmd(struct vfi_cmd_elem **list, char *name,
 					       struct vfi_async_handle * ah,
 					       char **cmd));
 /**
+ * vfi_unregister_cmd
+ * @list: an #vfi_cmd_elem handle
+ * @name: the name string of the command
+ * 
+ * This command unregisters the @name in the provided list.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int vfi_unregister_cmd(struct vfi_cmd_elem **list, char *name);
+
+/**
  * vfi_register_pre_cmd
  * @dev: an #vfi_dev handle
  * @name: the name string of the command
@@ -380,6 +391,17 @@ extern int vfi_register_pre_cmd(struct vfi_dev *dev, char *name,
 					       struct vfi_async_handle * ah,
 					       char **cmd));
 /**
+ * vfi_unregister_pre_cmd
+ * @dev: a #vfi_dev handle
+ * @name: the name string of the command
+ * 
+ * This command unregisters the @name in the pre_command list.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int vfi_unregister_pre_cmd(struct vfi_dev *dev, char *name);
+
+/**
  * vfi_register_post_cmd
  * @dev: an #vfi_dev handle
  * @name: the name string of the command
@@ -394,6 +416,17 @@ extern int vfi_register_post_cmd(struct vfi_dev *dev, char *name,
 				   int (*f) (struct vfi_dev * dev,
 						struct vfi_async_handle * ah,
 						char **cmd));
+/**
+ * vfi_unregister_post_cmd
+ * @dev: a #vfi_dev handle
+ * @name: the name string of the command
+ * 
+ * This command unregisters the @name in the post_command list of @dev.
+ *
+ * Returns: 0 if successful otherwise a negative error code.
+ */
+extern int vfi_unregister_post_cmd(struct vfi_dev *dev, char *name);
+
 /**
  * vfi_npc
  *

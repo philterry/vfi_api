@@ -40,17 +40,6 @@ vfi_api
 @Returns: 
 
 
-<!-- ##### FUNCTION smb_mmap_pre_cmd ##### -->
-<para>
-
-</para>
-
-@dev: 
-@ah: 
-@cmd: 
-@Returns: 
-
-
 <!-- ##### FUNCTION smb_create_pre_cmd ##### -->
 <para>
 
@@ -118,6 +107,28 @@ vfi_api
 
 
 <!-- ##### FUNCTION location_find_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION map_check_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
+<!-- ##### FUNCTION mmap_create_pre_cmd ##### -->
 <para>
 
 </para>

@@ -100,7 +100,7 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 	return VFI_RESULT(-ENOMEM);
 }
 
-static int smb_mmap_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
+static int mmap_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	long offset;
 	void *mem;
@@ -117,7 +117,7 @@ static int smb_mmap_closure(void *e, struct vfi_dev *dev, struct vfi_async_handl
 	return 0;
 }
 
-int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+int mmap_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	char *name;
 	int err = 0;
@@ -126,7 +126,7 @@ int smb_mmap_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cm
 		if (err = vfi_alloc_map(&e,name))
 			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate map. Error is %d", __func__, err);
 		else {
-			e->f = smb_mmap_closure;
+			e->f = mmap_create_closure;
 			if (err = vfi_get_extent(*cmd,&e->extent))
 				vfi_log(VFI_LOG_ERR, "%s: Parse error. Extent not found. Error is %d", __func__, err);
 			else
@@ -145,9 +145,9 @@ static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 	struct vfi_map *me;
 	vfi_alloc_map(&me,p->name);
 	sscanf(result+strlen("smb_create://"),"%a[^?]",&smb);
-	sprintf(*p->cmd,"smb_mmap://%s?map_name(%s)\n",smb,p->name);
+	sprintf(*p->cmd,"mmap_create://%s?map_name(%s)\n",smb,p->name);
 	free(smb);
-	me->f = smb_mmap_closure;
+	me->f = mmap_create_closure;
  	vfi_get_extent(result,&me->extent);
 	free(p->name);
 	free(vfi_set_async_handle(ah,me));
