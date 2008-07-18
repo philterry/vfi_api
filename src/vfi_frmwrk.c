@@ -128,7 +128,7 @@ static int mmap_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 		p->mem = mmap(0,p->extent,prot,flags,vfi_fileno(dev), offset);
 		if (vfi_register_map(dev,p->name,e))
 			printf("%s: register map failed\n", __func__);
-		vfi_set_async_handle(ah,NULL);
+		free(vfi_set_async_handle(ah,NULL));
 	}
 	return 0;
 }
