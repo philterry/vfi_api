@@ -34,7 +34,7 @@ int vfi_get_location(char *str, char **loc)
 	start = strcspn(str,".");
 	if (start) {
 		start++;
-		if (sscanf(str+start,"%a[^?=/]",loc) == 1) {
+		if (sscanf(str+start,"%a[^?=/#:]",loc) == 1) {
 			return 0;
 		}
 	}
