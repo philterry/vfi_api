@@ -143,14 +143,29 @@ int mmap_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate map. Error is %d", __func__, err);
 		else {
 			e->f = mmap_create_closure;
-			if (err = vfi_get_extent(*cmd,&e->extent))
+			if (err = vfi_get_extent(*cmd,&e->extent)) {
 				vfi_log(VFI_LOG_ERR, "%s: Parse error. Extent not found. Error is %d", __func__, err);
+				free(e);
+			}
 			else
 				free(vfi_set_async_handle(ah,e));
 		}
 		free(name);
 	}
 	return VFI_RESULT(err);
+}
+
+static int smb_name_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
+{
+	struct {void *f; char *name; long address; char **cmd;} *p = e;
+	struct vfi_map *me;
+	vfi_alloc_map(&me,p->name);
+ 	vfi_get_extent(result,&me->extent);
+	me->mem = (char *)p->address;
+	vfi_register_map(dev,me->name,me);
+	free(p->name);
+	free(vfi_set_async_handle(ah,NULL));
+	return 0;
 }
 
 static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
@@ -175,18 +190,98 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	/* smb_create://smb.loc.f#off:ext?map_name(name) */
 	char *name;
 	char *result = NULL;
-	//void **e;
+	unsigned long address;
+	struct vfi_map *map = NULL;
+	int named, sourced;
 
-	if (vfi_get_str_arg(*cmd,"map_name",&name) > 0) {
-		struct {void *f; char *name; char **cmd;} *e = calloc(1,sizeof(*e));
-		if (e) {
-			e->f =smb_create_closure;
-			e->name = name;
-			e->cmd = cmd;
-			free(vfi_set_async_handle(ah,e));
-		}
+	named = vfi_get_str_arg(*cmd,"map_name",&name) > 0;
+	sourced = vfi_get_hex_arg(*cmd,"map_address", &address) == 0;
+	if (named)
+		vfi_find_map(dev,name,&map);
+
+	if (sourced && map) {
+		free(name);
+		return -EINVAL;
 	}
+
+	if (!map && named) 
+		if (!sourced) {
+			struct {void *f; char *name; char **cmd;} *e = calloc(1,sizeof(*e));
+			if (e) {
+				e->f =smb_create_closure;
+				e->name = name;
+				e->cmd = cmd;
+				free(vfi_set_async_handle(ah,e));
+				return 0;
+			}
+			free(name);
+			return -ENOMEM;
+		}
+		else {
+			struct {void *f; char *name; long address; char **cmd;} *e = calloc(1,sizeof(*e));
+			if (e) {
+				e->f =smb_name_closure;
+				e->name = name;
+				e->address = address;
+				e->cmd = cmd;
+				free(vfi_set_async_handle(ah,e));
+				return 0;
+			}
+			free(name);
+			return -ENOMEM;
+		}
+	else if (map) {
+		/* add map_address from map */
+		char *old_cmd = *cmd;
+		*cmd = malloc(strlen(old_cmd)+30);
+		if (*cmd) {
+			sprintf(*cmd,"%s?map_address(%lx)\n",old_cmd,map->mem);
+			free(old_cmd);
+			return 0;
+		}
+		*cmd = old_cmd;
+		return -ENOMEM;
+	}
+
 	return 0;
+}
+
+int map_install_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+{
+	/* map_install://fred:4000 */
+	char *name;
+	char *location;
+	long extent;
+	int ret;
+	struct vfi_map *map;
+
+	ret = vfi_get_name_location(*cmd,&name,&location);
+	if (ret)
+		goto out;
+
+	free(location);
+
+	ret = vfi_get_extent(*cmd,&extent);
+	if (ret)
+		goto name;
+
+	ret = vfi_alloc_map(&map,name);
+	if (ret)
+		goto name;
+
+	map->mem = malloc(extent);
+	if (map->mem == NULL)
+		goto mem;
+
+	map->extent = extent;
+
+	return 1;
+mem:
+	free(map);
+name:
+	free(name);
+out:
+	return ret;
 }
 
 static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
