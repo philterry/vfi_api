@@ -32,19 +32,15 @@ static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 		goto done;
 	}
 
-#warning Change event storing? Same name on different locations gives a conflict
-#if 0
 	if (err = vfi_register_event(dev,p->dest_evt_name,p->dest_loc))
 		vfi_unregister_event(dev,p->src_evt_name, &payload);
-	MARK;printf("err = %d\n",err);
-#endif
+
  done:
 	if (err) {
 		free(p->src_loc); free(p->dest_loc);
 	}
 	free(p->src_evt_name); free(p->dest_evt_name);
-	free(p);
-	vfi_set_async_handle(ah,NULL);
+	free(vfi_set_async_handle(ah,NULL));
 	
 	assert(err <= 0);
 	return VFI_RESULT(err);
@@ -58,15 +54,16 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 	char *cmd; char *xfer; char *dest; char *src;
 	struct {void *f; char *src_evt_name; char *dest_evt_name; char *src_loc; char *dest_loc;} *e = calloc(1,sizeof(*e));
 	if (e) {
+		char *src_name, *dest_name;
 		vfi_parse_ternary_op(*command, &cmd, &xfer, &dest, &src);
 
-		if (vfi_get_str_arg(src,"event_name",&e->src_evt_name) != 1) {
+		if (vfi_get_str_arg(src,"event_name",&src_name) != 1) {
 			err = -EINVAL;
 			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Source event name not specified (%s).", __func__, *cmd);
 			goto error;
 		}
 
-		if (vfi_get_str_arg(dest,"event_name",&e->dest_evt_name) != 1) {
+		if (vfi_get_str_arg(dest,"event_name",&dest_name) != 1) {
 			err = -EINVAL;
 			vfi_log(VFI_LOG_ERR, "%s: Error parsing string. Destination event name not specified (%s).", __func__, *cmd);
 			goto error;
@@ -82,14 +79,33 @@ int bind_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 			goto error;
 		}
 
+		e->src_evt_name = malloc(strlen(src_name) + strlen(e->src_loc) + 2);
+		if (e->src_evt_name == NULL) {
+			vfi_log(VFI_LOG_ERR, "%s: Error creating src_evt_name (%s).", __func__, *cmd);
+			err = -ENOMEM;
+			goto error;
+		}
+
+		e->dest_evt_name = malloc(strlen(dest_name) + strlen(e->dest_loc) + 2);
+		if (e->dest_evt_name == NULL) {
+			vfi_log(VFI_LOG_ERR, "%s: Error creating dest_evt_name (%s).", __func__, *cmd);
+			err = -ENOMEM;
+			goto error;
+		}
+
+		sprintf(e->src_evt_name,"%s.%s",src_name,e->src_loc);
+		sprintf(e->dest_evt_name,"%s.%s",dest_name,e->dest_loc);
+
 		e->f = bind_create_closure;		
 
 		free(cmd);free(xfer);free(dest);free(src);
+		free(src_name);free(dest_name);
 		free(vfi_set_async_handle(ah,e));
-		return 0;
+		return VFI_RESULT(0);
 
 	error:
 		free(cmd); free(xfer); free(dest); free(src);
+		free(src_name);free(dest_name);
 		free(e->src_evt_name); free(e->dest_evt_name); free(e->src_loc); free(e->dest_loc);
 		free(e);
 		assert(err < 0);
@@ -414,11 +430,10 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 				goto done;
 			}
 
-			vfi_invoke_cmd(dev,"event_chain://%s.%s?request(%p),event_name(%s)\n",
+			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%.*s)\n",
 				       elem[func+i+1],
-				       eloc,
 				       ah,
-				       elem[func+i+2]);
+				       elem[func+i+2],strcspn(elem[func+i+2],"."));
 			vfi_wait_async_handle(ah,&result,&e);
 			if (vfi_get_dec_arg(result,"result",&rslt)) {
 				err = -EIO;
@@ -442,15 +457,10 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 		goto done;
 	}
 	
-	if (err = vfi_find_event(dev,elem[func+1],(void **)&eloc)) {
-		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup event %s. Error is %d", __func__, elem[func+1], err);
-		goto done;
-	}
-	
-	i = snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
+	i = snprintf(*command,128,"event_start://%s",elem[func+1]);
 	if (i >= 128) {
 		*command = realloc(*command,i+1);
-		snprintf(*command,128,"event_start://%s.%s",elem[func+1],eloc);
+		snprintf(*command,128,"event_start://%s",elem[func+1]);
 	}
 	
 	free(vfi_set_async_handle(ah,pipe));
