@@ -176,7 +176,7 @@ static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 	struct vfi_map *me;
 	vfi_alloc_map(&me,p->name);
 	sscanf(result+strlen("smb_create://"),"%a[^?]",&smb);
-	sprintf(*p->cmd,"mmap_create://%s?map_name(%s)\n",smb,p->name);
+	sprintf(*p->cmd,"mmap_create://%s?map_name(%s)",smb,p->name);
 	free(smb);
 	me->f = mmap_create_closure;
  	vfi_get_extent(result,&me->extent);
@@ -187,7 +187,7 @@ static int smb_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 
 int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
-	/* smb_create://smb.loc.f#off:ext?map_name(name) */
+	/* smb_create://smb.loc.f#off:ext?map_name(name),map_address(address) */
 	char *name;
 	char *result = NULL;
 	unsigned long address;
@@ -198,11 +198,6 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	sourced = vfi_get_hex_arg(*cmd,"map_address", &address) == 0;
 	if (named)
 		vfi_find_map(dev,name,&map);
-
-	if (sourced && map) {
-		free(name);
-		return -EINVAL;
-	}
 
 	if (!map && named) 
 		if (!sourced) {
@@ -220,22 +215,29 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 		else {
 			struct {void *f; char *name; long address; char **cmd;} *e = calloc(1,sizeof(*e));
 			if (e) {
-				e->f =smb_name_closure;
-				e->name = name;
-				e->address = address;
-				e->cmd = cmd;
-				free(vfi_set_async_handle(ah,e));
-				return 0;
+				char *old_cmd = *cmd;
+				*cmd = malloc(strlen(old_cmd)+64);
+				if (*cmd) {
+					sprintf(*cmd,"%s,mytid(%d)",old_cmd,getpid());
+					free(old_cmd);
+					e->f =smb_name_closure;
+					e->name = name;
+					e->address = address;
+					e->cmd = cmd;
+					free(vfi_set_async_handle(ah,e));
+					return 0;
+				}
+				*cmd = old_cmd;
 			}
 			free(name);
 			return -ENOMEM;
 		}
-	else if (map) {
+	else if (map && !sourced) {
 		/* add map_address from map */
 		char *old_cmd = *cmd;
-		*cmd = malloc(strlen(old_cmd)+30);
+		*cmd = malloc(strlen(old_cmd)+96);
 		if (*cmd) {
-			sprintf(*cmd,"%s?map_address(%lx)\n",old_cmd,map->mem);
+			sprintf(*cmd,"%s,map_address(%lx),map_extent(%lx),mytid(%d)",old_cmd,map->mem,map->extent,getpid());
 			free(old_cmd);
 			return 0;
 		}
@@ -249,8 +251,8 @@ int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 int map_install_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* map_install://fred:4000 */
-	char *name;
-	char *location;
+	char *name = NULL;
+	char *location = NULL;
 	long extent;
 	int ret;
 	struct vfi_map *map;
@@ -275,7 +277,14 @@ int map_install_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 
 	map->extent = extent;
 
+	ret = vfi_register_map(dev,name,map);
+	if (ret)
+		goto map;
+
 	return 1;
+
+map:
+	free(map->mem);
 mem:
 	free(map);
 name:

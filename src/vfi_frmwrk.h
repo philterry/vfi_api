@@ -155,6 +155,22 @@ extern int map_init_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, ch
  */
 extern int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
+/**
+ * map_install_pre_cmd
+ * @dev: API handle
+ * @ah: async handle in use for this thread
+ * @cmd: IO parameter, bind command on input
+ *
+ * This command parses the
+ * map_install://name:extent command in @cmd
+ * for a map name and extent and malloc's an area of memory of extent size and then
+ * registers it as a map under name.
+ *
+ * Returns: 1 to indicate that the @cmd should not be run by the driver or a negative
+ * value if an error occurred. If the check fails then -EBADMSG is returned.
+ */
+extern int map_install_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+
 #endif
 
 
