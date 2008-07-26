@@ -326,7 +326,7 @@ int event_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **
 	return 0;
 }
 
-static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
+static int wait_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
 {
 	long rslt;
 	int rc;
@@ -335,57 +335,21 @@ static int location_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_
 		vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
 		return VFI_RESULT(-EIO);
 	}
-	if (rslt)
+	if (rslt) {
+		sleep(1);
 		return 1;
+	}
 	free(vfi_set_async_handle(ah,NULL));
 	return 0;
 }
 
-int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
+int wait_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
-	/* location_find://name.location?wait */
-
 	int err = 0;
-
 	if (vfi_get_option(*cmd,"wait")) {
 		struct {void *f;} *e = calloc(1,sizeof(*e));
 		if (e) {
-			e->f = location_find_closure;
-			free(vfi_set_async_handle(ah,e));
-		}
-		else {
-			err = -ENOMEM;
-			vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);			
-		}
-
-	}
-
-	return VFI_RESULT(err);
-}
-
-static int sync_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_handle *ah, char *result)
-{
-	long rslt;
-	int rc;
-	rc = vfi_get_dec_arg(result,"result",&rslt);
-	if (rc) {
-		vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
-		return VFI_RESULT(-EIO);
-	}
-	if (rslt)
-		return 1;
-	free(vfi_set_async_handle(ah,NULL));
-	return 0;
-}
-
-int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
-{
-	int err = 0;
-	/* sync_find://name.location?wait */
-	if (vfi_get_option(*cmd,"wait")) {
-		struct {void *f;} *e = calloc(1,sizeof(*e));
-		if (e) {
-			e->f = sync_find_closure;
+			e->f = wait_closure;
 			free(vfi_set_async_handle(ah,e));
 		}
 		else {

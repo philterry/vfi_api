@@ -62,30 +62,17 @@ extern int smb_create_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, 
 extern int event_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 /**
- * sync_find_pre_cmd
+ * wait_pre_cmd
  * @dev: API handle
  * @ah: async handle in use for this thread
  * @cmd: IO parameter, bind command on input
  *
- * This command parses the sync_find command in @cmd for a wait option 
+ * This command parses any command in @cmd for a wait option 
  * and sets up a closure to loop on errors from the driver command if found.
  *
  * Returns: 0 to indicate that the @cmd should be run by the driver.
  */
-extern int sync_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
-
-/**
- * location_find_pre_cmd
- * @dev: API handle
- * @ah: async handle in use for this thread
- * @cmd: IO parameter, bind command on input
- *
- * This command parses the location_find command in @cmd for a wait
- * option and sets up a closure to loop on failures.
- *
- * Returns: 0 to indicate that the @cmd should be run by the driver.
- */
-extern int location_find_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+extern int wait_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 /**
  * pipe_pre_cmd

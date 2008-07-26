@@ -90,11 +90,11 @@ vfi_async_handle
 bind_create_pre_cmd
 smb_create_pre_cmd
 event_find_pre_cmd
-sync_find_pre_cmd
+wait_pre_cmd
 map_init_pre_cmd
 pipe_pre_cmd
 quit_pre_cmd
-location_find_pre_cmd
+map_install_pre_cmd
 map_check_pre_cmd
 mmap_create_pre_cmd
 </SECTION>

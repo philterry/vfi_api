@@ -62,7 +62,7 @@ vfi_api
 @Returns: 
 
 
-<!-- ##### FUNCTION sync_find_pre_cmd ##### -->
+<!-- ##### FUNCTION wait_pre_cmd ##### -->
 <para>
 
 </para>
@@ -106,7 +106,7 @@ vfi_api
 @Returns: 
 
 
-<!-- ##### FUNCTION location_find_pre_cmd ##### -->
+<!-- ##### FUNCTION map_install_pre_cmd ##### -->
 <para>
 
 </para>
