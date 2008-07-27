@@ -547,6 +547,183 @@ done:
 	return VFI_RESULT(err);
 }
 
+int unix_pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **command)
+{
+	/* unix_pipe://<func>[<event> [<event>]*)][< <inmap>]*[> <omap>]*  */
+
+	char *sp;
+	char *cmd;
+	char *iter;
+	int size = 0;
+	int elem_cnt = 0;
+	char *elem[20];
+
+	int func = 0;
+	int found_func = 0;
+	int events = 0;
+	int inmaps = 0;
+	int outmaps = 0;
+
+	int numevnts = 0;
+	int numimaps = 0;
+	int numomaps = 0;
+
+	int i = 0;
+	int numpipe = 0;
+	int numin = 0;
+	int numout = 0;
+	void **pipe = NULL;
+	void *e;
+	char *result = NULL;
+	char *eloc;
+	int err = 0;
+	long rslt = 0;
+
+	vfi_parse_unary_op(*command, &cmd, &sp);
+	free(cmd);
+	iter = sp;
+
+	while (*iter) {
+		if (sscanf(iter,"%as%n",&elem[elem_cnt],&size) > 0) {
+			switch (*(iter+size)) {
+			case '<':
+				inmaps = elem_cnt;
+				break;
+			case '>':
+				outmaps = elem_cnt;
+				break;
+
+			default:
+				if (!found_func) {
+					func = elem_cnt;
+					found_func = 1;
+				}
+				else
+					events = elem_cnt;
+				break;
+			}
+			elem_cnt++;
+			iter += size;
+		}
+		else
+			iter += 1;
+	}
+
+	free(sp);
+
+	if (events)
+		numevnts = events - func;
+
+	if (inmaps)
+		numimaps = inmaps - events;
+
+	if (outmaps)
+		numomaps = outmaps - inmaps; 
+
+	if (numevnts == 0) {
+		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: 0 events specified. Error is %d", __func__, elem[i], err);
+		goto done;
+	}
+
+	numpipe = elem_cnt + 2;
+
+	pipe = calloc(numpipe-numevnts,sizeof(void *));
+	if (!pipe) {
+		err = -ENOMEM;
+		vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
+	}
+
+	if (err = vfi_find_func(dev,elem[func],&pipe[0], &numin, &numout)) {
+		vfi_log(VFI_LOG_ERR, "%s: Failed to lookup function %s. Error is %d", __func__, elem[func], err);
+		goto done;
+	}
+
+	if (numin >= 0 && numin != numimaps) {
+		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Number of input maps (%d) differs from expected (%d) for function %s",
+			__func__, numimaps, numin, elem[func]);
+		goto done;
+	}
+
+	if (numout >= 0 && numout != numomaps) {
+		err = -EINVAL;
+		vfi_log(VFI_LOG_ERR, "%s: Number of output maps (%d) differs from expected (%d) for function %s",
+			__func__, numomaps, numout, elem[func]);
+		goto done;
+	}
+
+	for (i = 0; i< numimaps;i++)
+		if (err = vfi_find_map(dev,elem[events+i+1],(struct vfi_map **)&pipe[i+2])) {
+			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[i], err);
+			goto done;
+		}
+
+	for (i = 0; i< numomaps;i++)
+		if (err = vfi_find_map(dev,elem[inmaps+i+1],(struct vfi_map **)&pipe[func+i+2])) {
+			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[events+i+1], err);
+			goto done;
+		}
+
+	pipe[1] = (void *)(((numimaps & 0xff) << 0) | ((numomaps & 0xff) << 8));
+	pipe[1] =  (void *)((unsigned int)pipe[1] ^ (unsigned int)pipe[0]);
+
+	if (numevnts > 1) {
+		for (i = 0; i< numevnts-1;i++) {
+			if (err = vfi_find_event(dev,elem[func+i+1],(void **)&eloc)) {
+				vfi_log(VFI_LOG_ERR, "%s: Failed to lookup event %s. Error is %d", __func__, elem[func+i+1], err);
+				goto done;
+			}
+
+			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%.*s)\n",
+				       elem[func+i+1],
+				       ah,
+				       elem[func+i+2],strcspn(elem[func+i+2],"."));
+			vfi_wait_async_handle(ah,&result,&e);
+			if (vfi_get_dec_arg(result,"result",&rslt)) {
+				err = -EIO;
+				vfi_log(VFI_LOG_EMERG, "%s: Fatal error. Result string not returned from driver", __func__);
+				goto done;
+			}
+			if (rslt) {
+#warning TODO: Add code to remove chain		
+				err = rslt;
+				vfi_log(VFI_LOG_ERR, "%s: Command failed with error %ld (%s)", __func__, rslt, result);
+				goto done;
+			}
+		}
+	}
+	
+	free(*command);
+	*command = malloc(128);
+	if (*command == NULL) {
+		err = -ENOMEM;
+		vfi_log(VFI_LOG_ERR, "%s: Failed to allocate memory. Error is %d", __func__, err);
+		goto done;
+	}
+	
+	i = snprintf(*command,128,"event_start://%s",elem[func+1]);
+	if (i >= 128) {
+		*command = realloc(*command,i+1);
+		snprintf(*command,128,"event_start://%s",elem[func+1]);
+	}
+	
+	free(vfi_set_async_handle(ah,pipe));
+	
+done:
+	while (elem_cnt--)
+		free(elem[elem_cnt]);
+
+	if (err) {
+		if (pipe)
+			free(pipe);
+		if (*command)
+			free(*command);
+	}
+
+	return VFI_RESULT(err);
+}
+
 int quit_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd)
 {
 	/* quit or quit:// */
@@ -696,3 +873,39 @@ done:
 		VFI_DEBUG (MY_DEBUG, "%s: Map is OK\n", __func__);
 	return 1;
 }
+
+int vfi_initialize_api(struct vfi_dev *dev)
+{
+	int ret = 0;
+	if (!ret) ret = vfi_register_pre_cmd(dev,"bind_create",bind_create_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"mmap_create",mmap_create_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"smb_create",smb_create_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"map_install",map_install_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"event_find",event_find_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"location_find",wait_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"sync_wait",wait_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"pipe",pipe_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"unix_pipe",unix_pipe_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"quite",quit_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"map_init",map_init_pre_cmd);
+	if (!ret) ret = vfi_register_pre_cmd(dev,"map_check",map_check_pre_cmd);
+
+	return ret;
+}
+
+void vfi_clear_api(struct vfi_dev *dev)
+{
+	vfi_unregister_pre_cmd(dev,"bind_create");
+	vfi_unregister_pre_cmd(dev,"mmap_create");
+	vfi_unregister_pre_cmd(dev,"smb_create");
+	vfi_unregister_pre_cmd(dev,"map_install");
+	vfi_unregister_pre_cmd(dev,"event_find");
+	vfi_unregister_pre_cmd(dev,"location_find");
+	vfi_unregister_pre_cmd(dev,"sync_wait");
+	vfi_unregister_pre_cmd(dev,"pipe");
+	vfi_unregister_pre_cmd(dev,"unix_pipe");
+	vfi_unregister_pre_cmd(dev,"quite");
+	vfi_unregister_pre_cmd(dev,"map_init");
+	vfi_unregister_pre_cmd(dev,"map_check");
+}
+

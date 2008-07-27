@@ -95,6 +95,17 @@ vfi_api
 @Returns: 
 
 
+<!-- ##### FUNCTION unix_pipe_pre_cmd ##### -->
+<para>
+
+</para>
+
+@dev: 
+@ah: 
+@cmd: 
+@Returns: 
+
+
 <!-- ##### FUNCTION quit_pre_cmd ##### -->
 <para>
 
@@ -137,5 +148,22 @@ vfi_api
 @ah: 
 @cmd: 
 @Returns: 
+
+
+<!-- ##### FUNCTION vfi_initialize_api ##### -->
+<para>
+
+</para>
+
+@dev: 
+@Returns: 
+
+
+<!-- ##### FUNCTION vfi_clear_api ##### -->
+<para>
+
+</para>
+
+@dev: 
 
 

@@ -93,9 +93,12 @@ event_find_pre_cmd
 wait_pre_cmd
 map_init_pre_cmd
 pipe_pre_cmd
+unix_pipe_pre_cmd
 quit_pre_cmd
 map_install_pre_cmd
 map_check_pre_cmd
 mmap_create_pre_cmd
+vfi_initialize_api
+vfi_clear_api
 </SECTION>
 

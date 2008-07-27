@@ -94,6 +94,25 @@ extern int wait_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char *
 extern int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
 
 /**
+ * unix_pipe_pre_cmd
+ * @dev: API handle
+ * @ah: async handle in use for this thread
+ * @cmd: IO parameter, bind command on input
+ *
+ * This command parses the pipe command in @cmd for event names, map names and function
+ * and sets up a closure in the #vfi_async_handle @ah to execute the
+ * named function. The pipe command in @cmd is replaced with an
+ * event_start command for the head of the event chain, or lone event,
+ * named in the pipe command and the closure will return true to keep
+ * the pipeline in source_thread() running. The closure will terminate
+ * the pipeline if errors occur or if it detects that quit/abort etc.,
+ * have been called.
+ *
+ * Returns: 0 to indicate that the @cmd should be run by the driver.
+ */
+extern int unix_pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+
+/**
  * quit_pre_cmd
  * @dev: API handle
  * @ah: async handle in use for this thread
@@ -157,6 +176,26 @@ extern int map_check_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, c
  * value if an error occurred. If the check fails then -EBADMSG is returned.
  */
 extern int map_install_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **cmd);
+
+/**
+ * vfi_initialize_api
+ * @dev: API handle
+ *
+ * This command initializes the API handle with a default set of pre-commands.
+ *
+ * Returns: 0
+ */
+extern int vfi_initialize_api(struct vfi_dev *dev);
+
+/**
+ * vfi_clear_api
+ * @dev: API handle
+ *
+ * This command clears the API handle of the default set of pre-commands.
+ *
+ * Returns: 0
+ */
+extern void vfi_clear_api(struct vfi_dev *dev);
 
 #endif
 
