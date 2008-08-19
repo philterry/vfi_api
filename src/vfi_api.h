@@ -67,6 +67,8 @@ extern void vfi_close(struct vfi_dev *dev);
  * Returns: the file descriptor
  */
 extern int vfi_fileno(struct vfi_dev *dev);
+extern int  vfi_dev_done(struct vfi_dev *dev);
+extern int vfi_set_dev_done(struct vfi_dev *dev);
 
 /**
  * vfi_source:
