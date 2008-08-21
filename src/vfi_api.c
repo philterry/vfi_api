@@ -228,7 +228,7 @@ int vfi_register_npc(struct vfi_npc **elems, char *name, void *e)
 {
 	struct vfi_npc *l;
 	if (!vfi_find_npc(*elems, name, &l))
-		return VFI_RESULT(-EINVAL);
+		return VFI_RESULT(-EEXIST);
 	l = calloc(1, sizeof(*l) + strlen(name) + 1);
 	l->size = strlen(name);
 	strcpy(l->b, name);
@@ -322,7 +322,11 @@ int vfi_register_func(struct vfi_dev *dev, char *name, void *func, int numin, in
 
 int vfi_register_event(struct vfi_dev *dev, char *name, void *e)
 {
-	return vfi_register_npc(&dev->events, name, e);
+	int ret;
+	ret = vfi_register_npc(&dev->events, name, e);
+	if ( ret == -EEXIST )
+		return 0;
+	return ret;
 }
 
 int vfi_unregister_map(struct vfi_dev *dev, char *name, struct vfi_map **e)
