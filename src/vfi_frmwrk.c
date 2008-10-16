@@ -27,12 +27,12 @@ static int bind_create_closure(void *e, struct vfi_dev *dev, struct vfi_async_ha
 		goto done;
 	}
 
-	if (err = vfi_register_event(dev,p->src_evt_name,p->src_loc)) {
+	if (err = vfi_register_event(dev,p->src_evt_name,NULL)) {
 		vfi_log(VFI_LOG_ERR, "%s: Failed to register event. Error is %d", __func__, err);
 		goto done;
 	}
 
-	if (err = vfi_register_event(dev,p->dest_evt_name,p->dest_loc))
+	if (err = vfi_register_event(dev,p->dest_evt_name,NULL))
 		vfi_unregister_event(dev,p->src_evt_name, &payload);
 
  done:
@@ -305,8 +305,15 @@ static int event_find_closure(void *e, struct vfi_dev *dev, struct vfi_async_han
 	if (!rc && !rslt) {
 		rc = vfi_get_name_location(result,&name,&location);
 		if (!rc) {
-			vfi_register_event(dev,name,location);
+			char *full_name;
+			/*
+			 * Events are registered as fully qualified names so combine name and location
+			 */
+			full_name = malloc(strlen(name) + strlen(location) + 2);
+			sprintf(full_name,"%s.%s",name,location);
+			vfi_register_event(dev,full_name,NULL);
 			free(name);
+			free(location);
 		}
 	}
 
@@ -479,6 +486,7 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 	for (i = 0; i< numimaps;i++)
 		if (err = vfi_find_map(dev,elem[i],(struct vfi_map **)&pipe[i+2])) {
 			vfi_log(VFI_LOG_ERR, "%s: Failed to find map %s. Error is %d", __func__, elem[i], err);
+			printf("%s:%d\n",__FUNCTION__,__LINE__);
 			goto done;
 		}
 
@@ -498,10 +506,13 @@ int pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **comman
 				goto done;
 			}
 
-			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%.*s)\n",
-				       elem[func+i+1],
-				       ah,
-				       elem[func+i+2],strcspn(elem[func+i+2],"."));
+			cmd = malloc(strlen(elem[func+i+2]));
+			strcpy(cmd,elem[func+i+2]);
+			cmd[strcspn(elem[func+i+2],".")] = 0;
+			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%s)\n",
+    			       elem[func+i+1],ah,cmd);
+			free(cmd);
+
 			vfi_wait_async_handle(ah,&result,&e);
 			if (vfi_get_dec_arg(result,"result",&rslt)) {
 				err = -EIO;
@@ -540,8 +551,10 @@ done:
 	if (err) {
 		if (pipe)
 			free(pipe);
-		if (*command)
+		if (*command) {
 			free(*command);
+			*command = NULL;
+		}
 	}
 
 	return VFI_RESULT(err);
