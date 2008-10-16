@@ -688,10 +688,13 @@ int unix_pipe_pre_cmd(struct vfi_dev *dev, struct vfi_async_handle *ah, char **c
 				goto done;
 			}
 
-			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%.*s)\n",
-				       elem[func+i+1],
-				       ah,
-				       elem[func+i+2],strcspn(elem[func+i+2],"."));
+			cmd = malloc(strlen(elem[func+i+2]));
+			strcpy(cmd,elem[func+i+2]);
+			cmd[strcspn(elem[func+i+2],".")] = 0;
+			vfi_invoke_cmd(dev,"event_chain://%s?request(%p),event_name(%s)\n",
+    			       elem[func+i+1],ah,cmd);
+			free(cmd);
+
 			vfi_wait_async_handle(ah,&result,&e);
 			if (vfi_get_dec_arg(result,"result",&rslt)) {
 				err = -EIO;
@@ -730,8 +733,10 @@ done:
 	if (err) {
 		if (pipe)
 			free(pipe);
-		if (*command)
+		if (*command) {
 			free(*command);
+			*command = NULL;
+		}
 	}
 
 	return VFI_RESULT(err);
