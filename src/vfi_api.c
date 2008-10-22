@@ -807,23 +807,31 @@ int vfi_get_result(struct vfi_dev *dev, char **result)
 {
 	int ret;
 
-	ret = fscanf(dev->file, "%a[^\n]\n", result);
+	*result = malloc(1024);
 
-	while (ret <= 0 && ferror(dev->file)) {
+	if ( *result == NULL )
+		return VFI_RESULT(-ENOMEM);
 
-		free (*result);
-		*result = NULL;
-		clearerr(dev->file);
+	ret = read(dev->fd, *result, 1024);
 
+	while ((ret < 0 && errno == EAGAIN) || ret == 0 ) {
 		ret = vfi_poll_read(dev);
 		if (ret < 0)
-			return VFI_RESULT(ret);
-		if (ret == 0)
-			return VFI_RESULT(-ETIMEDOUT);
+			goto out;
+		if (ret == 0) {
+			ret = -ETIMEDOUT;
+			goto out;
+		}
 
-		ret = fscanf(dev->file, "%a[^\n]\n", result);
+		ret = read(dev->fd, *result, 1024);
 	}
-	return ret;
+
+	if (ret)
+		return VFI_RESULT(ret);
+out:
+	free (*result);
+	*result = NULL;
+	return VFI_RESULT(ret);
 }
 
 /*
