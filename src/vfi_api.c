@@ -826,8 +826,10 @@ int vfi_get_result(struct vfi_dev *dev, char **result)
 		ret = read(dev->fd, *result, 1024);
 	}
 
-	if (ret)
+	if (ret) {
+		(*result)[ret]='\0';
 		return VFI_RESULT(ret);
+	}
 out:
 	free (*result);
 	*result = NULL;
